@@ -1,20 +1,14 @@
 package gochat
 
 import (
-	"encoding/json"
 	"encoding/gob"
-	"crypto/rand"
-	"crypto/sha1"
+	"encoding/hex"
+	"crypto/sha256"
 	"errors"
+	"bufio"
 	"fmt"
 	"net"
-	"io"
-	"bufio"
 	"os"
-)
-
-const (
-	SALT_BYTES = 64
 )
 
 type ChatClient struct {
@@ -39,31 +33,12 @@ func (client *ChatClient) Connect(connection_string string) error {
 }
 
 func (client *ChatClient) Authenticate(username string, password string) error {
-	// Generate a salt
-	salt := make([]byte, SALT_BYTES)
-	_, err := io.ReadFull(rand.Reader, salt)
-	if err != nil {
-		return err
-	}
-
-	// Hash the password with the salt
-	combined := string(salt) + password
-	hash := sha1.Sum([]byte(combined))
-
-	// Authenticate message contents
-	contents := map[string]string{
-		"username": username,
-		"salt": string(salt),
-		"password": string(hash),
-	}
+	// Hash the password
+	password_hash := hex.EncodeToString([]byte(sha256.Sum256([]byte(password))))
 
 	// Send off the authentication attempt, the response will be handled elsewhere
-	message := Message{command: AUTHENTICATE, contents: string(json.Marshal(contents))}
-
-	encoder := gob.NewEncoder(client.conn)
-	encoder.Encode(message)
-
-	return nil
+	return SendRemoteCommand(client.conn,
+		BuildMessage(AUTHENTICATE, map[string]string{"username": username, "password": password_hash}))
 }
 
 func (client *ChatClient) ListenToServer() error {
@@ -73,7 +48,7 @@ func (client *ChatClient) ListenToServer() error {
 		message := Message{}
 		decoder.Decode(&message)
 
-		if err = client.HandleMessage(message); err != nil {
+		if err := client.HandleMessage(message); err != nil {
 			fmt.Println("Error handling the message, the error was:")
 			fmt.Println(err)
 		}
@@ -91,7 +66,7 @@ func (client *ChatClient) ListenToUser() error {
 		fmt.Print("Enter Message: ")
 		message, _ := reader.ReadString('\n')
 
-		if err = client.SendMessage(message); err != nil {
+		if err := client.SendMessage(message); err != nil {
 			fmt.Println(err)
 		}
 	}
@@ -110,20 +85,13 @@ func (client *ChatClient) HandleMessage(message Message) error {
 			// This message isn't a client command
 			break
 		case RECV_MESSAGE:
-			if err = client.DisplayMessage(message.contents); err != nil {
+			if err := client.DisplayMessage(message.contents); err != nil {
 				return err
 			}
 		default:
 			// Unknown message command
 			break
 	}
-
-	return nil
-}
-
-func (client *ChatClient) SendServerCommand(message Message) error {
-	encoder := gob.NewEncoder(client.conn)
-	encoder.Encode(message)
 
 	return nil
 }
@@ -140,17 +108,6 @@ func (client *ChatClient) SendMessage(content string) error {
 		return errors.New("Unable to send message as we have not authenticated yet!")
 	}
 
-	// Build message contents
-	contents := map[string]string{
-		"token": client.token,
-		"message": content,
-	}
-
-	command := Message{command: SEND_MESSAGE, contents: string(json.Marshal(contents))}
-
-	if err := client.SendServerCommand(command); err != nil {
-		return err
-	}
-
-	return nil
+	return SendRemoteCommand(client.conn,
+		BuildMessage(SEND_MESSAGE, map[string]string{"token": client.token, "message": content}))
 }

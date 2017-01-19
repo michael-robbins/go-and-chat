@@ -1,11 +1,11 @@
 package main
 
 import (
-	"os"
-	"fmt"
-	"flag"
-	"bufio"
 	"local/gochat"
+	"bufio"
+	"flag"
+	"fmt"
+	"os"
 )
 
 func main() {
