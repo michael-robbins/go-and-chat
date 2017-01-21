@@ -7,7 +7,7 @@ import (
 
 const (
 	TOKEN_LENGTH = 12
-	TOKEN_LETTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	TOKEN_LETTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 )
 
 type User struct {
@@ -18,7 +18,15 @@ type User struct {
 	password_sha256 string
 }
 
-func (user *User) GenerateToken() {
+func (user *User) GetToken() string {
+	if user.token == "" {
+		user.generateToken()
+	}
+
+	return user.token
+}
+
+func (user *User) generateToken() {
 	// Seed the RNG
 	rand.Seed(time.Now().UnixNano())
 

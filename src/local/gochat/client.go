@@ -13,6 +13,7 @@ import (
 
 type ChatClient struct {
 	conn net.Conn
+	username string
 	token string
 }
 
@@ -33,12 +34,104 @@ func (client *ChatClient) Connect(connection_string string) error {
 }
 
 func (client *ChatClient) Authenticate(username string, password string) error {
+	// Save the username
+	client.username = username
+
 	// Hash the password
 	password_hash := hex.EncodeToString([]byte(sha256.Sum256([]byte(password))))
 
 	// Send off the authentication attempt, the response will be handled elsewhere
 	return SendRemoteCommand(client.conn,
-		BuildMessage(AUTHENTICATE, map[string]string{"username": username, "password": password_hash}))
+		BuildMessage(AUTHENTICATE, AuthenticateMessage{username: username, password_hash: password_hash}))
+}
+
+func (client *ChatClient) ListenToUser() error {
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		fmt.Print("Enter Message: ")
+		message, _ := reader.ReadString('\n')
+
+		fmt.Print("Enter Room: ")
+		room, _ := reader.ReadString('\n')
+
+		if err := client.SendMessage(message, room); err != nil {
+			fmt.Println(err)
+		}
+	}
+}
+
+func (client *ChatClient) JoinRoom(room string) error {
+	if client.token == "" {
+		return errors.New("Unable to join a room as we have not authenticated yet!")
+	}
+
+	message := BuildMessage(JOIN_ROOM,
+		JoinRoomMessage{
+			username: client.username,
+			room: room,
+			isSuperUser: false,
+			token: client.token,
+		})
+
+	return SendRemoteCommand(client.conn, message)
+}
+
+func (client *ChatClient) LeaveRoom(room string) error {
+	if client.token == "" {
+		return errors.New("Unable to leave a room as we have not authenticated yet!")
+	}
+
+	message := BuildMessage(LEAVE_ROOM,
+		LeaveRoomMessage{
+			username: client.username,
+			room: room,
+			token: client.token,
+		})
+
+	return SendRemoteCommand(client.conn, message)
+}
+
+func (client *ChatClient) CreateRoom(room string, capacity int) error {
+	if client.token == "" {
+		return errors.New("Unable to create a room as we have not authenticated yet!")
+	}
+
+	message := BuildMessage(CREATE_ROOM,
+		CreateRoomMessage{
+			room: room,
+			capacity: capacity,
+			token: client.token,
+		})
+
+	return SendRemoteCommand(client.conn, message)
+}
+
+func (client *ChatClient) CloseRoom(room string) error {
+	if client.token == "" {
+		return errors.New("Unable to create a room as we have not authenticated yet!")
+	}
+
+	message := BuildMessage(CLOSE_ROOM,
+		CloseRoomMessage{
+			room: room,
+			token: client.token,
+		})
+
+	return SendRemoteCommand(client.conn, message)
+}
+
+func (client *ChatClient) SendMessage(content string, room string) error {
+	if client.token == "" {
+		return errors.New("Unable to send message as we have not authenticated yet!")
+	}
+
+	message := BuildMessage(SEND_MSG,
+		SendTextMessage{
+			token: client.token,
+			message: TextMessage{username: client.username, text: content, room: room},
+		})
+
+	return SendRemoteCommand(client.conn, message)
 }
 
 func (client *ChatClient) ListenToServer() error {
@@ -60,54 +153,33 @@ func (client *ChatClient) ListenToServer() error {
 	return nil
 }
 
-func (client *ChatClient) ListenToUser() error {
-	reader := bufio.NewReader(os.Stdin)
-	for {
-		fmt.Print("Enter Message: ")
-		message, _ := reader.ReadString('\n')
-
-		if err := client.SendMessage(message); err != nil {
-			fmt.Println(err)
-		}
-	}
-}
-
 func (client *ChatClient) HandleMessage(message Message) error {
 	// Interpret message
 	switch message.command {
-		case AUTHENTICATE:
-			// This message isn't a client command
-			break
-		case TOKEN:
-			// Response to an authentication attempt
-			client.token = message.contents
-		case SEND_MESSAGE:
-			// This message isn't a client command
-			break
-		case RECV_MESSAGE:
-			if err := client.DisplayMessage(message.contents); err != nil {
-				return err
-			}
-		default:
-			// Unknown message command
-			break
+	case TOKEN:
+		contents := message.contents.(TokenMessage)
+		client.token = contents.token
+	case RECV_MSG:
+		contents := message.contents.(RecvTextMessage)
+		client.DisplayTextMessage(contents.message)
+	case LIST_ROOMS:
+		contents := message.contents.(ListRoomsMessage)
+		client.DisplayRoomListingMessage(contents)
+	default:
+		// Unknown message command
+		return errors.New("Unable to determine incoming message type from server")
 	}
 
 	return nil
 }
 
-func (client *ChatClient) DisplayMessage(blob string) error {
-	fmt.Println("Displaying Client Message:")
-	fmt.Println(blob)
-
-	return nil
+func (client *ChatClient) DisplayTextMessage(message TextMessage) {
+	fmt.Println("[" + message.room + "] " + message.username + ":", message.text)
 }
 
-func (client *ChatClient) SendMessage(content string) error {
-	if client.token == "" {
-		return errors.New("Unable to send message as we have not authenticated yet!")
+func (client *ChatClient) DisplayRoomListingMessage(message ListRoomsMessage) {
+	fmt.Println("Room Listing:")
+	for i, room := range message.rooms {
+		fmt.Println(string(i) + ":", room)
 	}
-
-	return SendRemoteCommand(client.conn,
-		BuildMessage(SEND_MESSAGE, map[string]string{"token": client.token, "message": content}))
 }

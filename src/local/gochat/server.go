@@ -1,7 +1,6 @@
 package gochat
 
 import (
-	"encoding/json"
 	"crypto/sha256"
 	"encoding/gob"
 	"encoding/hex"
@@ -70,17 +69,15 @@ func (server *ChatServer) HandleMessage(message Message) (Message, error) {
 	// Interpret message
 	switch message.command {
 	case AUTHENTICATE:
-		credentials := UserCredentials{}
-		json.Unmarshal([]byte(message.contents), &credentials)
-
-		user_obj, err := server.AuthenticateUser(credentials.username, credentials.password_sha256)
+		contents := message.contents.(AuthenticateMessage)
+		user_obj, err := server.AuthenticateUser(contents.username, contents.password_hash)
 		if err != nil {
 			return nil, err
 		}
 
 		// Respond with the authentication token
-		return BuildMessage(TOKEN, map[string]string{"username": user_obj.username, "token": user_obj.token}), nil
-	case SEND_MESSAGE:
+		return BuildMessage(TOKEN, TokenMessage{username: user_obj.username, token: user_obj.GetToken()}), nil
+	case SEND_MSG:
 		// Load the message
 		// Ensure the user's token is valid
 		// Send the message to all other users
@@ -122,9 +119,6 @@ func (server *ChatServer) AuthenticateUser(username string, password_sha256 stri
 	} else {
 		return nil, errors.New("Invalid password")
 	}
-
-	// Generate a new token for them
-	user_object.GenerateToken()
 
 	return user_object, nil
 }

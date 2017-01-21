@@ -9,12 +9,19 @@ type ChatRoom struct {
 	capacity int
 }
 
-func (room *ChatRoom) AddUser(user User, isSuperUser bool) {
-	room.users = append(room.users, user)
-
+func (room *ChatRoom) AddUser(user User, isSuperUser bool) error {
 	if isSuperUser {
+		room.users = append(room.users, user)
 		room.superUsers = append(room.superUsers, user)
+	} else {
+		if len(room.users) > room.capacity {
+			return errors.New("Room is at capacity!")
+		}
+
+		room.users = append(room.users, user)
 	}
+
+	return nil
 }
 
 func removeUserFromList(user User, array []User) error {
@@ -35,13 +42,16 @@ func removeUserFromList(user User, array []User) error {
 }
 
 func (room *ChatRoom) RemoveUser(user User) error {
-	for _, list := range [][]User{room.users, room.superUsers} {
-		if err := removeUserFromList(user, list); err != nil {
-			return err
-		}
+	if err := removeUserFromList(user, room.users); err != nil {
+		return err
+	}
+
+	// Capacity is only for normal users, super users do not count towards the capacity of a room
+	room.capacity = room.capacity - 1
+
+	if err := removeUserFromList(user, room.superUsers); err != nil {
+		return err
 	}
 
 	return nil
 }
-
-func (room *ChatRoom) SendMessage(message string) {}
