@@ -3,6 +3,7 @@ package gochat
 import (
 	"math/rand"
 	"time"
+	"net"
 )
 
 const (
@@ -16,6 +17,7 @@ type User struct {
 	token_expiry time.Time
 	salt string
 	password_sha256 string
+	conn net.Conn
 }
 
 func (user *User) GetToken() string {

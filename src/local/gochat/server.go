@@ -17,6 +17,7 @@ const (
 
 type ChatServer struct {
 	user_manager *UserManager
+	room_manager *RoomManager
 }
 
 type UserCredentials struct {
@@ -25,8 +26,10 @@ type UserCredentials struct {
 }
 
 func NewChatServer() (*ChatServer, error) {
-	user_manager := NewUserManager()
-	chat_server := ChatServer{user_manager: user_manager}
+	chat_server := ChatServer{
+		user_manager: NewUserManager(),
+		room_manager: NewRoomManager(),
+	}
 
 	return &chat_server, nil
 }
@@ -59,7 +62,7 @@ func (server *ChatServer) HandleIncomingConnection(connection net.Conn) {
 	if err != nil {
 		fmt.Println(err)
 		return
-	} else {
+	} else if message.command == "" {
 		encoder := gob.NewEncoder(connection)
 		encoder.Encode(reply)
 	}
@@ -78,17 +81,20 @@ func (server *ChatServer) HandleMessage(message Message) (Message, error) {
 		// Respond with the authentication token
 		return BuildMessage(TOKEN, TokenMessage{username: user_obj.username, token: user_obj.GetToken()}), nil
 	case SEND_MSG:
-		// Load the message
+		contents := message.contents.(SendTextMessage)
+
 		// Ensure the user's token is valid
-		// Send the message to all other users
-		break
+		if valid, _ := server.user_manager.TokenIsValid(contents.token); valid {
+			server.sendTextMessageToRoom(contents.message)
+		}
+		return Message{}, nil
 	}
 
-	return nil, nil
+	return Message{}, nil
 }
 
 func (server *ChatServer) AuthenticateUser(username string, password_sha256 string) (User, error) {
-	user_object, err := server.getUser(username)
+	user_object, err := server.user_manager.GetUser(username)
 	if err != nil {
 		return nil, err
 	}
@@ -115,16 +121,12 @@ func (server *ChatServer) AuthenticateUser(username string, password_sha256 stri
 	server_side_hash := sha256.Sum256(append(server_salt, server_hash...))
 
 	if client_side_hash == server_side_hash {
-		return user_object, nil
+		return *user_object, nil
 	} else {
 		return nil, errors.New("Invalid password")
 	}
 
-	return user_object, nil
-}
-
-func (server *ChatServer) getUser(username string) (User, error) {
-	return server.user_manager.GetUser(username)
+	return *user_object, nil
 }
 
 func (server *ChatServer) registerUser(username string, password string) (User, error) {
@@ -147,4 +149,17 @@ func (server *ChatServer) registerUser(username string, password string) (User, 
 	}
 
 	return user, nil
+}
+
+func (server *ChatServer) sendTextMessageToRoom(message TextMessage) error {
+	room, err := server.room_manager.GetRoom(message.room)
+	if err != nil {
+		return err
+	}
+
+	for _, user := range room.users {
+		SendRemoteCommand(user.conn, BuildMessage(RECV_MSG, RecvTextMessage{message: message}))
+	}
+
+	return nil
 }
