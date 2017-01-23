@@ -1,9 +1,9 @@
 package gochat
 
 import (
+	"crypto/sha256"
 	"encoding/gob"
 	"encoding/hex"
-	"crypto/sha256"
 	"errors"
 	"bufio"
 	"fmt"

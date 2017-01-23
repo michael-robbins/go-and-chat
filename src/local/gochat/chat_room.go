@@ -1,33 +1,37 @@
 package gochat
 
-import "errors"
+import (
+	"errors"
+)
 
 type ChatRoom struct {
 	name string
 	users []User
 	superUsers []User
 	capacity int
+	closed bool
 }
 
-func (room *ChatRoom) AddUser(user User, isSuperUser bool) error {
+func (room *ChatRoom) AddUser(user *User, isSuperUser bool) error {
 	if isSuperUser {
-		room.users = append(room.users, user)
-		room.superUsers = append(room.superUsers, user)
+		// We skip the capacity check as the user is a super user
+		room.users = append(room.users, *user)
+		room.superUsers = append(room.superUsers, *user)
 	} else {
 		if len(room.users) > room.capacity {
 			return errors.New("Room is at capacity!")
 		}
 
-		room.users = append(room.users, user)
+		room.users = append(room.users, *user)
 	}
 
 	return nil
 }
 
-func removeUserFromList(user User, array []User) error {
+func removeUserFromList(user *User, array []User) error {
 	index := -1
 	for i, room_user := range array {
-		if room_user == user {
+		if room_user == *user {
 			index = i
 		}
 	}
@@ -41,7 +45,7 @@ func removeUserFromList(user User, array []User) error {
 	return nil
 }
 
-func (room *ChatRoom) RemoveUser(user User) error {
+func (room *ChatRoom) RemoveUser(user *User) error {
 	if err := removeUserFromList(user, room.users); err != nil {
 		return err
 	}

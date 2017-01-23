@@ -1,8 +1,13 @@
 package gochat
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"crypto/rand"
 	"errors"
 	"time"
+	"fmt"
+	"io"
 )
 
 type STORAGE_STRATEGY string
@@ -10,6 +15,10 @@ type STORAGE_STRATEGY string
 const (
 	FILE     = STORAGE_STRATEGY("FILE")
 	DATABASE = STORAGE_STRATEGY("DATABASE")
+)
+
+const (
+	SALT_BYTES = 64
 )
 
 type UserManager struct {
@@ -75,6 +84,66 @@ func (manager *UserManager) GetUser(username string) (*User, error) {
 	}
 
 	manager.user_cache[user.username] = user
+	return user, nil
+}
+
+func (manager *UserManager) CreateUser(username string, password string) (*User, error) {
+	// Generate a salt
+	salt := make([]byte, SALT_BYTES)
+	_, err := io.ReadFull(rand.Reader, salt)
+	if err != nil {
+		fmt.Println(err)
+		return nil, errors.New("There was an error registering the user.")
+	}
+
+	// Hash the password
+	password_hash := sha256.Sum256([]byte(password))
+	salted_hash := sha256.Sum256(append(salt, password_hash...))
+
+	user := User{
+		username: username,
+		salt: hex.EncodeToString(salt),
+		password_sha256: hex.EncodeToString(salted_hash[:]),
+	}
+
+	manager.PersistUser(&user)
+
+	return &user, nil
+}
+
+func (manager *UserManager) AuthenticateUser(username string, password_sha256 string) (*User, error) {
+	user, err := manager.GetUser(username)
+	if err != nil {
+		return nil, err
+	}
+
+	client_hash, err := hex.DecodeString(password_sha256)
+	if err != nil {
+		fmt.Println(err)
+		return nil, errors.New("Error decoding users password hash.")
+	}
+
+	server_salt, err := hex.DecodeString(user.salt)
+	if err != nil {
+		fmt.Println(err)
+		return nil, errors.New("Error decoding users server salt.")
+	}
+
+	server_hash, err := hex.DecodeString(user.password_sha256)
+	if err != nil {
+		fmt.Println(err)
+		return nil, errors.New("Error decoding users server password hash.")
+	}
+
+	client_side_hash := sha256.Sum256(append(server_salt, client_hash...))
+	server_side_hash := sha256.Sum256(append(server_salt, server_hash...))
+
+	if client_side_hash == server_side_hash {
+		return user, nil
+	} else {
+		return nil, errors.New("Invalid password")
+	}
+
 	return user, nil
 }
 

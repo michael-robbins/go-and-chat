@@ -1,28 +1,20 @@
 package gochat
 
 import (
-	"crypto/sha256"
 	"encoding/gob"
-	"encoding/hex"
-	"crypto/rand"
 	"errors"
 	"net"
 	"fmt"
-	"io"
 )
 
 const (
-	SALT_BYTES = 64
+	UNABLE_TO_ACCEPT_MESSAGE = "Unable to accept connection correctly."
+	INVALID_TOKEN = "Token is invalid."
 )
 
 type ChatServer struct {
 	user_manager *UserManager
 	room_manager *RoomManager
-}
-
-type UserCredentials struct {
-	username string `json:"username"`
-	password_sha256 string `json:"password"`
 }
 
 func NewChatServer() (*ChatServer, error) {
@@ -44,7 +36,7 @@ func (server ChatServer) Listen(connection_string string) error {
 	for {
 		connection, err := socket.Accept()
 		if err != nil {
-			fmt.Println("Unable to accept connection correctly.")
+			fmt.Println(UNABLE_TO_ACCEPT_MESSAGE)
 		}
 		go server.HandleIncomingConnection(connection)
 	}
@@ -62,104 +54,151 @@ func (server *ChatServer) HandleIncomingConnection(connection net.Conn) {
 	if err != nil {
 		fmt.Println(err)
 		return
-	} else if message.command == "" {
+	} else if message.command != "" {
+		// Only send a reply if the command is not empty
 		encoder := gob.NewEncoder(connection)
 		encoder.Encode(reply)
 	}
 }
 
 func (server *ChatServer) HandleMessage(message Message) (Message, error) {
+	// If the message provides a token, ensure it's valid
+	passes, err := server.messagePassesTokenTest(message)
+	if err != nil {
+		return Message{}, err
+	}
+
+	if ! passes {
+		return Message{}, errors.New(INVALID_TOKEN)
+	}
+	// We assume now that any requests that require a token are valid (authenticated)
+
+	// Get the room if this message contains one
+	// This saves us having the same room extraction code for each message type
+	room, err := server.getRoomIfRequired(message)
+	if err != nil {
+		return Message{}, err
+	}
+
+	// Get the user if this message has one
+	// This saves us having the same user extraction code for each message type
+	user, err := server.getUserIfRequired(message)
+	if err != nil {
+		return Message{}, err
+	}
+
 	// Interpret message
 	switch message.command {
 	case AUTHENTICATE:
 		contents := message.contents.(AuthenticateMessage)
-		user_obj, err := server.AuthenticateUser(contents.username, contents.password_hash)
+		user, err := server.user_manager.AuthenticateUser(contents.username, contents.password_hash)
 		if err != nil {
 			return nil, err
 		}
 
 		// Respond with the authentication token
-		return BuildMessage(TOKEN, TokenMessage{username: user_obj.username, token: user_obj.GetToken()}), nil
+		return BuildMessage(TOKEN, TokenMessage{username: user.username, token: user.GetToken()}), nil
 	case SEND_MSG:
 		contents := message.contents.(SendTextMessage)
-
-		// Ensure the user's token is valid
-		if valid, _ := server.user_manager.TokenIsValid(contents.token); valid {
-			server.sendTextMessageToRoom(contents.message)
+		for _, user := range room.users {
+			SendRemoteCommand(user.conn, BuildMessage(RECV_MSG, RecvTextMessage{message: contents.message}))
 		}
-		return Message{}, nil
+	case JOIN_ROOM:
+		contents :=  message.contents.(JoinRoomMessage)
+		if err := room.AddUser(user, contents.isSuperUser); err != nil {
+			return nil, err
+		}
+	case LEAVE_ROOM:
+		if err := room.RemoveUser(user); err != nil {
+			return nil, err
+		}
+	case CREATE_ROOM:
+		contents := message.contents.(CreateRoomMessage)
+		_, err := server.room_manager.CreateRoom(contents.room, contents.capacity)
+		if err != nil {
+			return Message{}, err
+		}
+	case CLOSE_ROOM:
+		contents := message.contents.(CloseRoomMessage)
+		if _, err := server.room_manager.CloseRoom(contents.room); err != nil {
+			return Message{}, err
+		}
 	}
 
 	return Message{}, nil
 }
 
-func (server *ChatServer) AuthenticateUser(username string, password_sha256 string) (User, error) {
-	user_object, err := server.user_manager.GetUser(username)
+func (server *ChatServer) messagePassesTokenTest(message Message) (bool, error) {
+	// Ensure any message requiring a token is valid
+	var token string
+
+	switch message.command {
+	case SEND_MSG:
+		token = message.contents.(SendTextMessage).token
+	case JOIN_ROOM:
+		token = message.contents.(JoinRoomMessage).token
+	case LEAVE_ROOM:
+		token = message.contents.(LeaveRoomMessage).token
+	case CREATE_ROOM:
+		token = message.contents.(CreateRoomMessage).token
+	case CLOSE_ROOM:
+		token = message.contents.(CloseRoomMessage).token
+	default:
+		return true, nil
+	}
+
+	if valid, _ := server.user_manager.TokenIsValid(token); valid {
+		return true, nil
+	}
+
+	// Token is provided, but is not valid
+	return false, nil
+}
+
+func (server *ChatServer) getRoomIfRequired(message Message) (*ChatRoom, error) {
+	var name string
+
+	switch message.command {
+	case SEND_MSG:
+		name = message.contents.(SendTextMessage).message.room
+	case JOIN_ROOM:
+		name = message.contents.(JoinRoomMessage).room
+	case LEAVE_ROOM:
+		name = message.contents.(LeaveRoomMessage).room
+	case CREATE_ROOM:
+		name = message.contents.(CreateRoomMessage).room
+	case CLOSE_ROOM:
+		name = message.contents.(CloseRoomMessage).room
+	default:
+		return nil, nil
+	}
+
+	room, err := server.room_manager.GetRoom(name)
 	if err != nil {
 		return nil, err
 	}
 
-	client_hash, err := hex.DecodeString(password_sha256)
-	if err != nil {
-		fmt.Println(err)
-		return nil, errors.New("Error decoding users password hash.")
-	}
-
-	server_salt, err := hex.DecodeString(user_object.salt)
-	if err != nil {
-		fmt.Println(err)
-		return nil, errors.New("Error decoding users server salt.")
-	}
-
-	server_hash, err := hex.DecodeString(user_object.password_sha256)
-	if err != nil {
-		fmt.Println(err)
-		return nil, errors.New("Error decoding users server password hash.")
-	}
-
-	client_side_hash := sha256.Sum256(append(server_salt, client_hash...))
-	server_side_hash := sha256.Sum256(append(server_salt, server_hash...))
-
-	if client_side_hash == server_side_hash {
-		return *user_object, nil
-	} else {
-		return nil, errors.New("Invalid password")
-	}
-
-	return *user_object, nil
+	return room, nil
 }
 
-func (server *ChatServer) registerUser(username string, password string) (User, error) {
-	// Generate a salt
-	salt := make([]byte, SALT_BYTES)
-	_, err := io.ReadFull(rand.Reader, salt)
-	if err != nil {
-		fmt.Println(err)
-		return nil, errors.New("There was an error registering the user.")
+func (server *ChatServer) getUserIfRequired(message Message) (*User, error) {
+	var name string
+
+	switch message.command {
+	case SEND_MSG:
+		name = message.contents.(SendTextMessage).message.username
+	case JOIN_ROOM:
+		name = message.contents.(JoinRoomMessage).username
+	case LEAVE_ROOM:
+		name = message.contents.(LeaveRoomMessage).username
+	default:
+		return nil, nil
 	}
 
-	// Hash the password
-	password_hash := sha256.Sum256([]byte(password))
-	salted_hash := sha256.Sum256(append(salt, password_hash...))
-
-	user := User{
-		username: username,
-		salt: hex.EncodeToString(salt),
-		password_sha256: hex.EncodeToString(salted_hash[:]),
+	user, err := server.user_manager.GetUser(name)
+	if err != nil {
+		return nil, err
 	}
 
 	return user, nil
-}
-
-func (server *ChatServer) sendTextMessageToRoom(message TextMessage) error {
-	room, err := server.room_manager.GetRoom(message.room)
-	if err != nil {
-		return err
-	}
-
-	for _, user := range room.users {
-		SendRemoteCommand(user.conn, BuildMessage(RECV_MSG, RecvTextMessage{message: message}))
-	}
-
-	return nil
 }
