@@ -34,5 +34,10 @@ func main() {
 	go client.ListenToServer()
 
 	// Listen to the users input
-	client.ListenToUser()
+	err := client.ListenToUser()
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	fmt.Println("Quitting.")
 }

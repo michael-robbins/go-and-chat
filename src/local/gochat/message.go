@@ -8,15 +8,15 @@ import (
 type COMMAND string
 
 const (
-	AUTHENTICATE    = COMMAND("AUTHENTICATE")
-	TOKEN           = COMMAND("TOKEN")
-	LIST_ROOMS		= COMMAND("LIST_ROOMS")
-	JOIN_ROOM		= COMMAND("JOIN_ROOM")
-	LEAVE_ROOM		= COMMAND("LEAVE_ROOM")
-	CREATE_ROOM		= COMMAND("CREATE_ROOM")
-	CLOSE_ROOM		= COMMAND("CLOSE_ROOM")
-	SEND_MSG    = COMMAND("SEND_MSG")
-	RECV_MSG    = COMMAND("RECV_MSG")
+	AUTHENTICATE    = COMMAND("Authenticate")
+	TOKEN           = COMMAND("Token")
+	LIST_ROOMS		= COMMAND("List Rooms")
+	JOIN_ROOM		= COMMAND("Join Room")
+	LEAVE_ROOM		= COMMAND("Leave Room")
+	CREATE_ROOM		= COMMAND("Create Room")
+	CLOSE_ROOM		= COMMAND("Close Room")
+	SEND_MSG  		= COMMAND("Send Message")
+	RECV_MSG   	 	= COMMAND("Receive Message")
 )
 
 type Message struct {

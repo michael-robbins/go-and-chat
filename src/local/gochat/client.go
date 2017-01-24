@@ -4,11 +4,13 @@ import (
 	"crypto/sha256"
 	"encoding/gob"
 	"encoding/hex"
+	"strconv"
 	"errors"
 	"bufio"
 	"fmt"
 	"net"
 	"os"
+	"math"
 )
 
 type ChatClient struct {
@@ -46,18 +48,131 @@ func (client *ChatClient) Authenticate(username string, password string) error {
 }
 
 func (client *ChatClient) ListenToUser() error {
-	reader := bufio.NewReader(os.Stdin)
+	client_commands := []COMMAND{LIST_ROOMS, JOIN_ROOM, CREATE_ROOM, CLOSE_ROOM}
+
+	MainMenu:
 	for {
-		fmt.Print("Enter Message: ")
-		message, _ := reader.ReadString('\n')
+		number := -1
 
-		fmt.Print("Enter Room: ")
-		room, _ := reader.ReadString('\n')
+		// Inner for loop will break when we have a valid choice
+		for {
+			if number != -1 {
+				break
+			}
 
-		if err := client.SendMessage(message, room); err != nil {
-			fmt.Println(err)
+			fmt.Println("Please select an option:")
+			for i, command := range client_commands {
+				fmt.Println(string(i) + ":", command)
+			}
+
+			text := getUserInput("Choice (number): ")
+			if text == "quit" || text == "q" {
+				return nil
+			}
+
+			var err error
+			number, err = strconv.Atoi(text)
+			if err != nil || number < 1 || number > len(client_commands) {
+				fmt.Println("Invalid choice (Only '1' -> '" + string(len(client_commands)) +"').")
+			}
+
+			break
+		}
+
+		switch client_commands[number] {
+		case LIST_ROOMS:
+			client.ListRooms()
+			fmt.Println("Client: Sent list rooms request!")
+		case JOIN_ROOM:
+			var room_name string
+			for {
+				if room_name != "" {
+					break
+				}
+
+				room_name := getUserInput("Room to join: ")
+				if room_name == "quit" || room_name == "q" {
+					continue MainMenu
+				}
+			}
+
+			client.JoinRoom(room_name)
+			fmt.Println("Client: Sent join room request!")
+		case CREATE_ROOM:
+			var room_name string
+			for {
+				if room_name != "" {
+					break
+				}
+
+				room_name := getUserInput("Room to create: ")
+				if room_name == "quit" || room_name == "q" {
+					continue MainMenu
+				}
+			}
+
+			room_capacity := -1
+			for {
+				if room_capacity != -1 {
+					break
+				}
+
+				text := getUserInput("Room to create: ")
+
+				if room_name == "quit" || room_name == "q" {
+					continue MainMenu
+				}
+
+				var err error
+				number, err := strconv.Atoi(text)
+
+				if err != nil || number < 1 {
+					fmt.Println("Invalid choice (Only '1' -> 'MAX_INT32'.")
+				}
+
+				room_capacity = number
+			}
+
+			client.CreateRoom(room_name, room_capacity)
+			fmt.Println("Client: Sent create room request!")
+		case CLOSE_ROOM:
+			var room_name string
+			for {
+				if room_name != "" {
+					break
+				}
+
+				room_name := getUserInput("Room to join: ")
+				if room_name == "quit" || room_name == "q" {
+					continue MainMenu
+				}
+			}
+
+			client.CloseRoom(room_name)
+			fmt.Println("Client: Close room request!")
 		}
 	}
+}
+
+func getUserInput(message string) string {
+	reader := bufio.NewReader(os.Stdin)
+
+	fmt.Println("'quit' or 'q' will exit.")
+	fmt.Println("")
+	fmt.Print(message)
+
+	text, _ := reader.ReadString('\n')
+
+	return text
+}
+
+
+func (client *ChatClient) ListRooms() error {
+	if client.token == "" {
+		return errors.New("Unable to list any rooms we have not authenticated yet!")
+	}
+
+	return SendRemoteCommand(client.conn, BuildMessage(LIST_ROOMS, ListRoomsMessage{}))
 }
 
 func (client *ChatClient) JoinRoom(room string) error {
