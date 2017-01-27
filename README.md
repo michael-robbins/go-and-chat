@@ -1,3 +1,5 @@
-# go-and-chat
+# Go and Chat
 
-Crappy attempt at a client/server CLI chat program. Mainly as an introduction to Go and network application programming.
+Initial attempt at writing a client/server CLI chat program in GO.
+
+This repo will build both the server and client binaries.
