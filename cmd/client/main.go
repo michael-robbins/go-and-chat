@@ -3,6 +3,7 @@ package main
 import (
 	"local/gochat"
 	"bufio"
+	"time"
 	"flag"
 	"fmt"
 	"os"
@@ -14,8 +15,10 @@ func main() {
 
 	client, _ := gochat.NewChatClient()
 
-	if err := client.Connect(*connection_string); err != nil {
+	connection, err := client.Connect(*connection_string)
+	if err != nil {
 		fmt.Println(err)
+		return
 	}
 
 	reader := bufio.NewReader(os.Stdin)
@@ -31,12 +34,34 @@ func main() {
 	}
 
 	// Spin off a thread to listen for server events
-	go client.ListenToServer()
+	server_messages := make(chan gochat.Message, 1)
+	go client.ListenToServer(server_messages)
 
-	// Listen to the users input
-	err := client.ListenToUser()
-	if err != nil {
-		fmt.Println(err)
+	// Spin off a thread to listen for client events
+	client_messages := make(chan gochat.Message, 1)
+	exit_decision := make(chan int, 1)
+	go client.ListenToUser(client_messages, exit_decision)
+
+	// Listen to events on the server & client channels
+	EventLoop:
+	for {
+		select {
+		case message := <-server_messages:
+			// Handle the server initiated message
+			if err := client.HandleServerMessage(message); err != nil {
+				fmt.Println(err)
+			}
+		case message := <-client_messages:
+			// Handle the client initiated message
+			if err := gochat.SendRemoteCommand(connection, message); err != nil {
+				fmt.Println(err)
+			}
+		case _ = <-exit_decision:
+			break EventLoop
+		}
+
+		// Sleep for a second then check again for any server/client messages
+		time.Sleep(time.Second)
 	}
 
 	fmt.Println("Quitting.")

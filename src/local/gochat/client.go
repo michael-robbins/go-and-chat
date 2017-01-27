@@ -4,13 +4,9 @@ import (
 	"crypto/sha256"
 	"encoding/gob"
 	"encoding/hex"
-	"strconv"
 	"errors"
-	"bufio"
 	"fmt"
 	"net"
-	"os"
-	"math"
 )
 
 type ChatClient struct {
@@ -23,16 +19,24 @@ func NewChatClient() (*ChatClient, error) {
 	return &ChatClient{}, nil
 }
 
-func (client *ChatClient) Connect(connection_string string) error {
+func (client *ChatClient) Connection() (net.Conn, error) {
+	if client.conn != nil {
+		return client.conn, nil
+	}
+
+	return nil, errors.New("Not connected")
+}
+
+func (client *ChatClient) Connect(connection_string string) (net.Conn, error) {
 	// Attempt to connect to the server returning the connection status
 	conn, err := net.Dial("tcp", connection_string)
 	if err != nil {
-		return errors.New("Unable to connect to the server")
+		return nil, err
 	}
 
 	client.conn = conn
 
-	return nil
+	return client.conn, nil
 }
 
 func (client *ChatClient) Authenticate(username string, password string) error {
@@ -47,228 +51,155 @@ func (client *ChatClient) Authenticate(username string, password string) error {
 		BuildMessage(AUTHENTICATE, AuthenticateMessage{username: username, password_hash: password_hash}))
 }
 
-func (client *ChatClient) ListenToUser() error {
+func (client *ChatClient) ListenToUser(message_channel chan<- Message, exit <-chan int) (error) {
 	client_commands := []COMMAND{LIST_ROOMS, JOIN_ROOM, CREATE_ROOM, CLOSE_ROOM}
 
-	MainMenu:
+	UserMenuLoop:
 	for {
-		number := -1
+		number := getClientCommandsOption(client_commands)
 
-		// Inner for loop will break when we have a valid choice
-		for {
-			if number != -1 {
-				break
-			}
-
-			fmt.Println("Please select an option:")
-			for i, command := range client_commands {
-				fmt.Println(string(i) + ":", command)
-			}
-
-			text := getUserInput("Choice (number): ")
-			if text == "quit" || text == "q" {
-				return nil
-			}
-
-			var err error
-			number, err = strconv.Atoi(text)
-			if err != nil || number < 1 || number > len(client_commands) {
-				fmt.Println("Invalid choice (Only '1' -> '" + string(len(client_commands)) +"').")
-			}
-
-			break
+		// The user has indicated to quit
+		if number == -1 {
+			exit<- 1
 		}
 
-		switch client_commands[number] {
-		case LIST_ROOMS:
-			client.ListRooms()
-			fmt.Println("Client: Sent list rooms request!")
-		case JOIN_ROOM:
-			var room_name string
-			for {
-				if room_name != "" {
-					break
-				}
+		command := client_commands[number]
 
-				room_name := getUserInput("Room to join: ")
-				if room_name == "quit" || room_name == "q" {
-					continue MainMenu
-				}
+		// Populate the room_name if required
+		var room_name string
+
+		switch command {
+		case JOIN_ROOM, LEAVE_ROOM, CREATE_ROOM, CLOSE_ROOM:
+			room_name := getRoomName()
+			if room_name == "" {
+				// The user has indicated to return to the main menu
+				continue UserMenuLoop
 			}
+		}
 
-			client.JoinRoom(room_name)
-			fmt.Println("Client: Sent join room request!")
+		// Populate the room_capacity if required
+		var room_capacity int
+
+		switch command {
 		case CREATE_ROOM:
-			var room_name string
-			for {
-				if room_name != "" {
-					break
-				}
-
-				room_name := getUserInput("Room to create: ")
-				if room_name == "quit" || room_name == "q" {
-					continue MainMenu
-				}
+			room_capacity = getRoomCapacity()
+			if room_capacity == -1 {
+				// The user has indicated to return to the main menu
+				continue UserMenuLoop
 			}
+		}
 
-			room_capacity := -1
-			for {
-				if room_capacity != -1 {
-					break
-				}
+		// Generate the message to send
+		var message Message
+		var err error
 
-				text := getUserInput("Room to create: ")
-
-				if room_name == "quit" || room_name == "q" {
-					continue MainMenu
-				}
-
-				var err error
-				number, err := strconv.Atoi(text)
-
-				if err != nil || number < 1 {
-					fmt.Println("Invalid choice (Only '1' -> 'MAX_INT32'.")
-				}
-
-				room_capacity = number
-			}
-
-			client.CreateRoom(room_name, room_capacity)
-			fmt.Println("Client: Sent create room request!")
+		switch command {
+		case LIST_ROOMS:
+			message, err = client.BuildListRoomsMessage()
+		case JOIN_ROOM:
+			message, err = client.BuildJoinRoomMessage(room_name)
+		case LEAVE_ROOM:
+			message, err = client.BuildLeaveRoomMessage(room_name)
+		case CREATE_ROOM:
+			message, err = client.BuildCreateRoomMessage(room_name, room_capacity)
 		case CLOSE_ROOM:
-			var room_name string
-			for {
-				if room_name != "" {
-					break
-				}
+			message, err = client.BuildCloseRoomMessage(room_name)
+		}
 
-				room_name := getUserInput("Room to join: ")
-				if room_name == "quit" || room_name == "q" {
-					continue MainMenu
-				}
-			}
-
-			client.CloseRoom(room_name)
-			fmt.Println("Client: Close room request!")
+		// Send the message into the queue or print out the error and continue the main loop
+		if err != nil {
+			fmt.Println(err)
+		} else {
+			message_channel<- message
 		}
 	}
 }
 
-func getUserInput(message string) string {
-	reader := bufio.NewReader(os.Stdin)
-
-	fmt.Println("'quit' or 'q' will exit.")
-	fmt.Println("")
-	fmt.Print(message)
-
-	text, _ := reader.ReadString('\n')
-
-	return text
-}
-
-
-func (client *ChatClient) ListRooms() error {
+func (client *ChatClient) BuildListRoomsMessage() (Message, error) {
 	if client.token == "" {
-		return errors.New("Unable to list any rooms we have not authenticated yet!")
+		return nil, errors.New("Unable to list any rooms we have not authenticated yet!")
 	}
 
-	return SendRemoteCommand(client.conn, BuildMessage(LIST_ROOMS, ListRoomsMessage{}))
+	return BuildMessage(LIST_ROOMS, ListRoomsMessage{}), nil
 }
 
-func (client *ChatClient) JoinRoom(room string) error {
+func (client *ChatClient) BuildJoinRoomMessage(room string) (Message, error) {
 	if client.token == "" {
-		return errors.New("Unable to join a room as we have not authenticated yet!")
+		return nil, errors.New("Unable to join a room as we have not authenticated yet!")
 	}
 
-	message := BuildMessage(JOIN_ROOM,
+	return BuildMessage(JOIN_ROOM,
 		JoinRoomMessage{
 			username: client.username,
 			room: room,
 			isSuperUser: false,
 			token: client.token,
-		})
-
-	return SendRemoteCommand(client.conn, message)
+		}), nil
 }
 
-func (client *ChatClient) LeaveRoom(room string) error {
+func (client *ChatClient) BuildLeaveRoomMessage(room string) (Message, error) {
 	if client.token == "" {
-		return errors.New("Unable to leave a room as we have not authenticated yet!")
+		return nil, errors.New("Unable to leave a room as we have not authenticated yet!")
 	}
 
-	message := BuildMessage(LEAVE_ROOM,
+	return BuildMessage(LEAVE_ROOM,
 		LeaveRoomMessage{
 			username: client.username,
 			room: room,
 			token: client.token,
-		})
-
-	return SendRemoteCommand(client.conn, message)
+		}), nil
 }
 
-func (client *ChatClient) CreateRoom(room string, capacity int) error {
+func (client *ChatClient) BuildCreateRoomMessage(room string, capacity int) (Message, error) {
 	if client.token == "" {
-		return errors.New("Unable to create a room as we have not authenticated yet!")
+		return nil, errors.New("Unable to create a room as we have not authenticated yet!")
 	}
 
-	message := BuildMessage(CREATE_ROOM,
+	return BuildMessage(CREATE_ROOM,
 		CreateRoomMessage{
 			room: room,
 			capacity: capacity,
 			token: client.token,
-		})
-
-	return SendRemoteCommand(client.conn, message)
+		}), nil
 }
 
-func (client *ChatClient) CloseRoom(room string) error {
+func (client *ChatClient) BuildCloseRoomMessage(room string) (Message, error) {
 	if client.token == "" {
-		return errors.New("Unable to create a room as we have not authenticated yet!")
+		return nil, errors.New("Unable to close a room as we have not authenticated yet!")
 	}
 
-	message := BuildMessage(CLOSE_ROOM,
+	return BuildMessage(CLOSE_ROOM,
 		CloseRoomMessage{
 			room: room,
 			token: client.token,
-		})
-
-	return SendRemoteCommand(client.conn, message)
+		}), nil
 }
 
-func (client *ChatClient) SendMessage(content string, room string) error {
+func (client *ChatClient) BuildSendMessageMessage(content string, room string) (Message, error) {
 	if client.token == "" {
-		return errors.New("Unable to send message as we have not authenticated yet!")
+		return nil, errors.New("Unable to send message as we have not authenticated yet!")
 	}
 
-	message := BuildMessage(SEND_MSG,
+	return BuildMessage(SEND_MSG,
 		SendTextMessage{
 			token: client.token,
 			message: TextMessage{username: client.username, text: content, room: room},
-		})
-
-	return SendRemoteCommand(client.conn, message)
+		}), nil
 }
 
-func (client *ChatClient) ListenToServer() error {
+func (client *ChatClient) ListenToServer(notify chan<- Message) error {
 	decoder := gob.NewDecoder(client.conn)
 
 	for {
 		message := Message{}
 		decoder.Decode(&message)
-
-		if err := client.HandleMessage(message); err != nil {
-			fmt.Println("Error handling the message, the error was:")
-			fmt.Println(err)
-		}
-
-		fmt.Println("Breaking out of ListenToServer loop")
-		break
+		notify<- message
 	}
 
 	return nil
 }
 
-func (client *ChatClient) HandleMessage(message Message) error {
+func (client *ChatClient) HandleServerMessage(message Message) error {
 	// Interpret message
 	switch message.command {
 	case TOKEN:
