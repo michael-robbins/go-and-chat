@@ -1,4 +1,2 @@
-* Get basic client/server chat working
-* Expand on the possible client/server messages
-    * Ability to list/subscribe to channels
-* Handle disconnections gracefully on the client
+1. Get it all working initially
+2. Make the user CLI more pretty, maybe https://github.com/gizak/termui ?
