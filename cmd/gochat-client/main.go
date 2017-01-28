@@ -15,7 +15,7 @@ func main() {
 	flag.Parse()
 
 	if *connection_string == "" {
-		fmt.Fprintln(os.Stderr, "Usage of GoAndChat:")
+		fmt.Fprintln(os.Stderr, "Usage of GoChat Client:")
 		flag.PrintDefaults()
 		fmt.Fprintln(os.Stderr, "\nMissing -server hostname:port")
 		return
