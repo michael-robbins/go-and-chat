@@ -30,10 +30,11 @@ func getClientCommandsOption(client_commands []COMMAND) int {
 
 		fmt.Println("Please select an option:")
 		for i, command := range client_commands {
-			fmt.Println(string(i)+":", command)
+			fmt.Print(i, " ", "=", " ", command, "\n")
 		}
 
 		text := getUserInput("Choice (number): ")
+		fmt.Println(text)
 		if text == "quit" || text == "q" {
 			return -1
 		}

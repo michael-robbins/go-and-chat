@@ -20,8 +20,8 @@ const (
 )
 
 type Message struct {
-	command  COMMAND
-	contents interface{}
+	Command  COMMAND
+	Contents interface{}
 }
 
 type AuthenticateMessage struct {
@@ -83,5 +83,5 @@ func SendRemoteCommand(connection net.Conn, message Message) error {
 }
 
 func BuildMessage(message_type COMMAND, contents interface{}) Message {
-	return Message{command: message_type, contents: contents}
+	return Message{Command: message_type, Contents: contents}
 }

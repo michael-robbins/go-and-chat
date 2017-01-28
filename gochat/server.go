@@ -54,7 +54,7 @@ func (server *ChatServer) HandleIncomingConnection(connection net.Conn) {
 	if err != nil {
 		fmt.Println(err)
 		return
-	} else if message.command != "" {
+	} else if message.Command != "" {
 		// Only send a reply if the command is not empty
 		encoder := gob.NewEncoder(connection)
 		encoder.Encode(reply)
@@ -88,9 +88,9 @@ func (server *ChatServer) HandleMessage(message Message) (Message, error) {
 	}
 
 	// Interpret message
-	switch message.command {
+	switch message.Command {
 	case AUTHENTICATE:
-		contents := message.contents.(AuthenticateMessage)
+		contents := message.Contents.(AuthenticateMessage)
 		user, err := server.user_manager.AuthenticateUser(contents.username, contents.password_hash)
 		if err != nil {
 			return Message{}, err
@@ -99,12 +99,12 @@ func (server *ChatServer) HandleMessage(message Message) (Message, error) {
 		// Respond with the authentication token
 		return BuildMessage(TOKEN, TokenMessage{username: user.username, token: user.GetToken()}), nil
 	case SEND_MSG:
-		contents := message.contents.(SendTextMessage)
+		contents := message.Contents.(SendTextMessage)
 		for _, user := range room.users {
 			SendRemoteCommand(user.conn, BuildMessage(RECV_MSG, RecvTextMessage{message: contents.message}))
 		}
 	case JOIN_ROOM:
-		contents := message.contents.(JoinRoomMessage)
+		contents := message.Contents.(JoinRoomMessage)
 		if err := room.AddUser(user, contents.isSuperUser); err != nil {
 			return Message{}, err
 		}
@@ -113,13 +113,13 @@ func (server *ChatServer) HandleMessage(message Message) (Message, error) {
 			return Message{}, err
 		}
 	case CREATE_ROOM:
-		contents := message.contents.(CreateRoomMessage)
+		contents := message.Contents.(CreateRoomMessage)
 		_, err := server.room_manager.CreateRoom(contents.room, contents.capacity)
 		if err != nil {
 			return Message{}, err
 		}
 	case CLOSE_ROOM:
-		contents := message.contents.(CloseRoomMessage)
+		contents := message.Contents.(CloseRoomMessage)
 		if _, err := server.room_manager.CloseRoom(contents.room); err != nil {
 			return Message{}, err
 		}
@@ -132,17 +132,17 @@ func (server *ChatServer) messagePassesTokenTest(message Message) (bool, error) 
 	// Ensure any message requiring a token is valid
 	var token string
 
-	switch message.command {
+	switch message.Command {
 	case SEND_MSG:
-		token = message.contents.(SendTextMessage).token
+		token = message.Contents.(SendTextMessage).token
 	case JOIN_ROOM:
-		token = message.contents.(JoinRoomMessage).token
+		token = message.Contents.(JoinRoomMessage).token
 	case LEAVE_ROOM:
-		token = message.contents.(LeaveRoomMessage).token
+		token = message.Contents.(LeaveRoomMessage).token
 	case CREATE_ROOM:
-		token = message.contents.(CreateRoomMessage).token
+		token = message.Contents.(CreateRoomMessage).token
 	case CLOSE_ROOM:
-		token = message.contents.(CloseRoomMessage).token
+		token = message.Contents.(CloseRoomMessage).token
 	default:
 		return true, nil
 	}
@@ -158,17 +158,17 @@ func (server *ChatServer) messagePassesTokenTest(message Message) (bool, error) 
 func (server *ChatServer) getRoomIfRequired(message Message) (*ChatRoom, error) {
 	var name string
 
-	switch message.command {
+	switch message.Command {
 	case SEND_MSG:
-		name = message.contents.(SendTextMessage).message.room
+		name = message.Contents.(SendTextMessage).message.room
 	case JOIN_ROOM:
-		name = message.contents.(JoinRoomMessage).room
+		name = message.Contents.(JoinRoomMessage).room
 	case LEAVE_ROOM:
-		name = message.contents.(LeaveRoomMessage).room
+		name = message.Contents.(LeaveRoomMessage).room
 	case CREATE_ROOM:
-		name = message.contents.(CreateRoomMessage).room
+		name = message.Contents.(CreateRoomMessage).room
 	case CLOSE_ROOM:
-		name = message.contents.(CloseRoomMessage).room
+		name = message.Contents.(CloseRoomMessage).room
 	default:
 		return nil, nil
 	}
@@ -184,13 +184,13 @@ func (server *ChatServer) getRoomIfRequired(message Message) (*ChatRoom, error) 
 func (server *ChatServer) getUserIfRequired(message Message) (*User, error) {
 	var name string
 
-	switch message.command {
+	switch message.Command {
 	case SEND_MSG:
-		name = message.contents.(SendTextMessage).message.username
+		name = message.Contents.(SendTextMessage).message.username
 	case JOIN_ROOM:
-		name = message.contents.(JoinRoomMessage).username
+		name = message.Contents.(JoinRoomMessage).username
 	case LEAVE_ROOM:
-		name = message.contents.(LeaveRoomMessage).username
+		name = message.Contents.(LeaveRoomMessage).username
 	default:
 		return nil, nil
 	}

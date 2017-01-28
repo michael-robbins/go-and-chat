@@ -202,19 +202,19 @@ func (client *ChatClient) ListenToServer(notify chan<- Message) error {
 
 func (client *ChatClient) HandleServerMessage(message Message) error {
 	// Interpret message
-	switch message.command {
+	switch message.Command {
 	case TOKEN:
-		contents := message.contents.(TokenMessage)
+		contents := message.Contents.(TokenMessage)
 		client.token = contents.token
 	case RECV_MSG:
-		contents := message.contents.(RecvTextMessage)
+		contents := message.Contents.(RecvTextMessage)
 		client.DisplayTextMessage(contents.message)
 	case LIST_ROOMS:
-		contents := message.contents.(ListRoomsMessage)
+		contents := message.Contents.(ListRoomsMessage)
 		client.DisplayRoomListingMessage(contents)
 	default:
 		// Unknown message command
-		return errors.New("Unable to determine incoming message type from server")
+		return errors.New("Unable to determine incoming message type from server.")
 	}
 
 	return nil
