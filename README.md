@@ -14,4 +14,4 @@ This repo will build both the server and client binaries.
 
 4. That will install the server binary into $GOPATH/bin/gochat-server(.exe)
 
-5. (Optionally) copy the client (and optionally the server) into a local execution path (Eg. /usr/bin/local/)
+5. (Optionally) copy the client (and optionally the server) into a local execution path (Eg. /usr/local/bin/)
