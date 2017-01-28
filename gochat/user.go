@@ -2,22 +2,22 @@ package gochat
 
 import (
 	"math/rand"
-	"time"
 	"net"
+	"time"
 )
 
 const (
-	TOKEN_LENGTH = 12
+	TOKEN_LENGTH  = 12
 	TOKEN_LETTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 )
 
 type User struct {
-	username string
-	token string
-	token_expiry time.Time
-	salt string
+	username        string
+	token           string
+	token_expiry    time.Time
+	salt            string
 	password_sha256 string
-	conn net.Conn
+	conn            net.Conn
 }
 
 func (user *User) GetToken() string {

@@ -1,10 +1,10 @@
 package gochat
 
 import (
-	"strconv"
 	"bufio"
 	"fmt"
 	"os"
+	"strconv"
 )
 
 func getUserInput(message string) string {

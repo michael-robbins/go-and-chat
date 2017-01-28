@@ -10,9 +10,9 @@ import (
 )
 
 type ChatClient struct {
-	conn net.Conn
+	conn     net.Conn
 	username string
-	token string
+	token    string
 }
 
 func NewChatClient() (*ChatClient, error) {
@@ -44,23 +44,24 @@ func (client *ChatClient) Authenticate(username string, password string) error {
 	client.username = username
 
 	// Hash the password
-	password_hash := hex.EncodeToString([]byte(sha256.Sum256([]byte(password))))
+	password_hash := sha256.Sum256([]byte(password))
+	password_hash_hex := hex.EncodeToString(password_hash[:])
 
 	// Send off the authentication attempt, the response will be handled elsewhere
 	return SendRemoteCommand(client.conn,
-		BuildMessage(AUTHENTICATE, AuthenticateMessage{username: username, password_hash: password_hash}))
+		BuildMessage(AUTHENTICATE, AuthenticateMessage{username: username, password_hash: password_hash_hex}))
 }
 
-func (client *ChatClient) ListenToUser(message_channel chan<- Message, exit <-chan int) (error) {
+func (client *ChatClient) ListenToUser(message_channel chan<- Message, exit chan<- int) error {
 	client_commands := []COMMAND{LIST_ROOMS, JOIN_ROOM, CREATE_ROOM, CLOSE_ROOM}
 
-	UserMenuLoop:
+UserMenuLoop:
 	for {
 		number := getClientCommandsOption(client_commands)
 
 		// The user has indicated to quit
 		if number == -1 {
-			exit<- 1
+			exit <- 1
 		}
 
 		command := client_commands[number]
@@ -110,14 +111,14 @@ func (client *ChatClient) ListenToUser(message_channel chan<- Message, exit <-ch
 		if err != nil {
 			fmt.Println(err)
 		} else {
-			message_channel<- message
+			message_channel <- message
 		}
 	}
 }
 
 func (client *ChatClient) BuildListRoomsMessage() (Message, error) {
 	if client.token == "" {
-		return nil, errors.New("Unable to list any rooms we have not authenticated yet!")
+		return Message{}, errors.New("Unable to list any rooms we have not authenticated yet!")
 	}
 
 	return BuildMessage(LIST_ROOMS, ListRoomsMessage{}), nil
@@ -125,64 +126,64 @@ func (client *ChatClient) BuildListRoomsMessage() (Message, error) {
 
 func (client *ChatClient) BuildJoinRoomMessage(room string) (Message, error) {
 	if client.token == "" {
-		return nil, errors.New("Unable to join a room as we have not authenticated yet!")
+		return Message{}, errors.New("Unable to join a room as we have not authenticated yet!")
 	}
 
 	return BuildMessage(JOIN_ROOM,
 		JoinRoomMessage{
-			username: client.username,
-			room: room,
+			username:    client.username,
+			room:        room,
 			isSuperUser: false,
-			token: client.token,
+			token:       client.token,
 		}), nil
 }
 
 func (client *ChatClient) BuildLeaveRoomMessage(room string) (Message, error) {
 	if client.token == "" {
-		return nil, errors.New("Unable to leave a room as we have not authenticated yet!")
+		return Message{}, errors.New("Unable to leave a room as we have not authenticated yet!")
 	}
 
 	return BuildMessage(LEAVE_ROOM,
 		LeaveRoomMessage{
 			username: client.username,
-			room: room,
-			token: client.token,
+			room:     room,
+			token:    client.token,
 		}), nil
 }
 
 func (client *ChatClient) BuildCreateRoomMessage(room string, capacity int) (Message, error) {
 	if client.token == "" {
-		return nil, errors.New("Unable to create a room as we have not authenticated yet!")
+		return Message{}, errors.New("Unable to create a room as we have not authenticated yet!")
 	}
 
 	return BuildMessage(CREATE_ROOM,
 		CreateRoomMessage{
-			room: room,
+			room:     room,
 			capacity: capacity,
-			token: client.token,
+			token:    client.token,
 		}), nil
 }
 
 func (client *ChatClient) BuildCloseRoomMessage(room string) (Message, error) {
 	if client.token == "" {
-		return nil, errors.New("Unable to close a room as we have not authenticated yet!")
+		return Message{}, errors.New("Unable to close a room as we have not authenticated yet!")
 	}
 
 	return BuildMessage(CLOSE_ROOM,
 		CloseRoomMessage{
-			room: room,
+			room:  room,
 			token: client.token,
 		}), nil
 }
 
 func (client *ChatClient) BuildSendMessageMessage(content string, room string) (Message, error) {
 	if client.token == "" {
-		return nil, errors.New("Unable to send message as we have not authenticated yet!")
+		return Message{}, errors.New("Unable to send message as we have not authenticated yet!")
 	}
 
 	return BuildMessage(SEND_MSG,
 		SendTextMessage{
-			token: client.token,
+			token:   client.token,
 			message: TextMessage{username: client.username, text: content, room: room},
 		}), nil
 }
@@ -193,7 +194,7 @@ func (client *ChatClient) ListenToServer(notify chan<- Message) error {
 	for {
 		message := Message{}
 		decoder.Decode(&message)
-		notify<- message
+		notify <- message
 	}
 
 	return nil
@@ -220,12 +221,12 @@ func (client *ChatClient) HandleServerMessage(message Message) error {
 }
 
 func (client *ChatClient) DisplayTextMessage(message TextMessage) {
-	fmt.Println("[" + message.room + "] " + message.username + ":", message.text)
+	fmt.Println("["+message.room+"] "+message.username+":", message.text)
 }
 
 func (client *ChatClient) DisplayRoomListingMessage(message ListRoomsMessage) {
 	fmt.Println("Room Listing:")
 	for i, room := range message.rooms {
-		fmt.Println(string(i) + ":", room)
+		fmt.Println(string(i)+":", room)
 	}
 }

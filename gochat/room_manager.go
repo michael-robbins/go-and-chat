@@ -11,7 +11,7 @@ const (
 )
 
 type RoomManager struct {
-	strategy STORAGE_STRATEGY
+	strategy   STORAGE_STRATEGY
 	room_cache map[string]*ChatRoom
 }
 
@@ -19,7 +19,7 @@ func NewRoomManager() *RoomManager {
 	return &RoomManager{}
 }
 
-func (manager *RoomManager) InitialiseFileStorage() {}
+func (manager *RoomManager) InitialiseFileStorage()     {}
 func (manager *RoomManager) InitialiseDatabaseStorage() {}
 
 func (manager *RoomManager) PersistRoomToFileStorage(room *ChatRoom) (bool, error) {
@@ -37,7 +37,7 @@ func (manager *RoomManager) PersistRoom(room *ChatRoom) (bool, error) {
 	case DATABASE:
 		return manager.PersistRoomToDatabaseStorage(room)
 	default:
-		return nil, nil
+		return false, errors.New("Unable to determine storage stratergy")
 	}
 }
 
@@ -88,7 +88,7 @@ func (manager *RoomManager) GetRoom(name string) (*ChatRoom, error) {
 
 func (manager *RoomManager) CreateRoom(name string, capacity int) (*ChatRoom, error) {
 	room := ChatRoom{
-		name: name,
+		name:     name,
 		capacity: capacity,
 	}
 

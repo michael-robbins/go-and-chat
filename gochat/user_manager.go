@@ -1,13 +1,13 @@
 package gochat
 
 import (
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
-	"crypto/rand"
 	"errors"
-	"time"
 	"fmt"
 	"io"
+	"time"
 )
 
 type STORAGE_STRATEGY string
@@ -22,7 +22,7 @@ const (
 )
 
 type UserManager struct {
-	strategy STORAGE_STRATEGY
+	strategy   STORAGE_STRATEGY
 	user_cache map[string]*User
 }
 
@@ -30,7 +30,7 @@ func NewUserManager() *UserManager {
 	return &UserManager{}
 }
 
-func (manager *UserManager) InitialiseFileStorage() {}
+func (manager *UserManager) InitialiseFileStorage()     {}
 func (manager *UserManager) InitialiseDatabaseStorage() {}
 
 func (manager *UserManager) PersistUserToFileStorage(user *User) (bool, error) {
@@ -48,7 +48,7 @@ func (manager *UserManager) PersistUser(user *User) (bool, error) {
 	case DATABASE:
 		return manager.PersistUserToDatabaseStorage(user)
 	default:
-		return nil, nil
+		return false, errors.New("Unable to determine storage stratergy")
 	}
 }
 
@@ -98,11 +98,11 @@ func (manager *UserManager) CreateUser(username string, password string) (*User,
 
 	// Hash the password
 	password_hash := sha256.Sum256([]byte(password))
-	salted_hash := sha256.Sum256(append(salt, password_hash...))
+	salted_hash := sha256.Sum256(append(salt, password_hash[:]...))
 
 	user := User{
-		username: username,
-		salt: hex.EncodeToString(salt),
+		username:        username,
+		salt:            hex.EncodeToString(salt),
 		password_sha256: hex.EncodeToString(salted_hash[:]),
 	}
 

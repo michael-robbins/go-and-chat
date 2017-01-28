@@ -1,17 +1,24 @@
 package main
 
 import (
-	"local/gochat"
 	"bufio"
-	"time"
 	"flag"
 	"fmt"
 	"os"
+	"time"
+	"github.com/michael-robbins/go-and-chat/gochat"
 )
 
 func main() {
-	connection_string := flag.String("server", "", "'ip:port' connection string to the server")
+	connection_string := flag.String("-server", "", "'hostname:port' connection string to the server")
 	flag.Parse()
+
+	if *connection_string == "" {
+		fmt.Fprintln(os.Stderr, "Usage of GoAndChat:")
+		flag.PrintDefaults()
+		fmt.Fprintln(os.Stderr, "\nMissing --server hostname:port")
+		return
+	}
 
 	client, _ := gochat.NewChatClient()
 
@@ -43,7 +50,7 @@ func main() {
 	go client.ListenToUser(client_messages, exit_decision)
 
 	// Listen to events on the server & client channels
-	EventLoop:
+EventLoop:
 	for {
 		select {
 		case message := <-server_messages:

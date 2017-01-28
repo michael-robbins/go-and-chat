@@ -1,10 +1,10 @@
 package main
 
 import (
-	"fmt"
 	"flag"
+	"fmt"
 	"strings"
-	"local/gochat"
+	"github.com/michael-robbins/go-and-chat/gochat"
 )
 
 func main() {

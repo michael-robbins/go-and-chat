@@ -5,11 +5,11 @@ import (
 )
 
 type ChatRoom struct {
-	name string
-	users []User
+	name       string
+	users      []User
 	superUsers []User
-	capacity int
-	closed bool
+	capacity   int
+	closed     bool
 }
 
 func (room *ChatRoom) AddUser(user *User, isSuperUser bool) error {

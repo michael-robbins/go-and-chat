@@ -3,13 +3,13 @@ package gochat
 import (
 	"encoding/gob"
 	"errors"
-	"net"
 	"fmt"
+	"net"
 )
 
 const (
 	UNABLE_TO_ACCEPT_MESSAGE = "Unable to accept connection correctly."
-	INVALID_TOKEN = "Token is invalid."
+	INVALID_TOKEN            = "Token is invalid."
 )
 
 type ChatServer struct {
@@ -68,7 +68,7 @@ func (server *ChatServer) HandleMessage(message Message) (Message, error) {
 		return Message{}, err
 	}
 
-	if ! passes {
+	if !passes {
 		return Message{}, errors.New(INVALID_TOKEN)
 	}
 	// We assume now that any requests that require a token are valid (authenticated)
@@ -93,7 +93,7 @@ func (server *ChatServer) HandleMessage(message Message) (Message, error) {
 		contents := message.contents.(AuthenticateMessage)
 		user, err := server.user_manager.AuthenticateUser(contents.username, contents.password_hash)
 		if err != nil {
-			return nil, err
+			return Message{}, err
 		}
 
 		// Respond with the authentication token
@@ -104,13 +104,13 @@ func (server *ChatServer) HandleMessage(message Message) (Message, error) {
 			SendRemoteCommand(user.conn, BuildMessage(RECV_MSG, RecvTextMessage{message: contents.message}))
 		}
 	case JOIN_ROOM:
-		contents :=  message.contents.(JoinRoomMessage)
+		contents := message.contents.(JoinRoomMessage)
 		if err := room.AddUser(user, contents.isSuperUser); err != nil {
-			return nil, err
+			return Message{}, err
 		}
 	case LEAVE_ROOM:
 		if err := room.RemoveUser(user); err != nil {
-			return nil, err
+			return Message{}, err
 		}
 	case CREATE_ROOM:
 		contents := message.contents.(CreateRoomMessage)
