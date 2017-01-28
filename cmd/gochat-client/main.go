@@ -10,13 +10,13 @@ import (
 )
 
 func main() {
-	connection_string := flag.String("-server", "", "'hostname:port' connection string to the server")
+	connection_string := flag.String("server", "", "'hostname:port' connection string to the server")
 	flag.Parse()
 
 	if *connection_string == "" {
 		fmt.Fprintln(os.Stderr, "Usage of GoAndChat:")
 		flag.PrintDefaults()
-		fmt.Fprintln(os.Stderr, "\nMissing --server hostname:port")
+		fmt.Fprintln(os.Stderr, "\nMissing -server hostname:port")
 		return
 	}
 
