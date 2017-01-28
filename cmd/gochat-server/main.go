@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"strings"
+
 	"github.com/michael-robbins/go-and-chat/gochat"
 )
 

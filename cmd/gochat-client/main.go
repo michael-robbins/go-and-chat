@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"time"
+
 	"github.com/michael-robbins/go-and-chat/gochat"
 )
 
