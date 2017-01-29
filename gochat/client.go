@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"time"
 )
 
 type ChatClient struct {
@@ -40,7 +41,7 @@ func (client *ChatClient) Connect(connection_string string) (net.Conn, error) {
 }
 
 func (client *ChatClient) Authenticate(username string, password string) error {
-	// Save the username
+	// Save the Username
 	client.username = username
 
 	// Hash the password
@@ -49,7 +50,7 @@ func (client *ChatClient) Authenticate(username string, password string) error {
 
 	// Send off the authentication attempt, the response will be handled elsewhere
 	return SendRemoteCommand(client.conn,
-		BuildMessage(AUTHENTICATE, AuthenticateMessage{username: username, password_hash: password_hash_hex}))
+		BuildMessage(AUTHENTICATE, AuthenticateMessage{Username: username, PasswordHash: password_hash_hex}))
 }
 
 func (client *ChatClient) ListenToUser(message_channel chan<- Message, exit chan<- int) error {
@@ -61,10 +62,24 @@ UserMenuLoop:
 
 		// The user has indicated to quit
 		if number == -1 {
+			// Fire an exit event to the event loop
 			exit <- 1
+
+			// Return to stop this go thread
+			return nil
 		}
 
-		command := client_commands[number]
+		// We offset by one as the user is only given the choices of 1 -> len(client_commands)
+		command := client_commands[number - 1]
+
+		// Ensure that any commands that require authentication have a Token
+		switch command {
+		case LIST_ROOMS, JOIN_ROOM, CREATE_ROOM, CLOSE_ROOM:
+			if client.token == "" {
+				fmt.Println("Unable to do that, as we have not authenticated yet!")
+				continue UserMenuLoop
+			}
+		}
 
 		// Populate the room_name if required
 		var room_name string
@@ -90,7 +105,7 @@ UserMenuLoop:
 			}
 		}
 
-		// Generate the message to send
+		// Generate the Message to send
 		var message Message
 		var err error
 
@@ -107,7 +122,7 @@ UserMenuLoop:
 			message, err = client.BuildCloseRoomMessage(room_name)
 		}
 
-		// Send the message into the queue or print out the error and continue the main loop
+		// Send the Message into the queue or print out the error and continue the main loop
 		if err != nil {
 			fmt.Println(err)
 		} else {
@@ -118,82 +133,86 @@ UserMenuLoop:
 
 func (client *ChatClient) BuildListRoomsMessage() (Message, error) {
 	if client.token == "" {
-		return Message{}, errors.New("Unable to list any rooms we have not authenticated yet!")
+		return Message{}, errors.New("Unable to list any Rooms we have not authenticated yet!")
 	}
 
 	return BuildMessage(LIST_ROOMS, ListRoomsMessage{}), nil
 }
 
 func (client *ChatClient) BuildJoinRoomMessage(room string) (Message, error) {
-	if client.token == "" {
-		return Message{}, errors.New("Unable to join a room as we have not authenticated yet!")
-	}
-
 	return BuildMessage(JOIN_ROOM,
 		JoinRoomMessage{
-			username:    client.username,
-			room:        room,
-			isSuperUser: false,
-			token:       client.token,
+			Username:    client.username,
+			Room:        room,
+			IsSuperUser: false,
+			Token:       client.token,
 		}), nil
 }
 
 func (client *ChatClient) BuildLeaveRoomMessage(room string) (Message, error) {
 	if client.token == "" {
-		return Message{}, errors.New("Unable to leave a room as we have not authenticated yet!")
+		return Message{}, errors.New("Unable to leave a Room as we have not authenticated yet!")
 	}
 
 	return BuildMessage(LEAVE_ROOM,
 		LeaveRoomMessage{
-			username: client.username,
-			room:     room,
-			token:    client.token,
+			Username: client.username,
+			Room:     room,
+			Token:    client.token,
 		}), nil
 }
 
 func (client *ChatClient) BuildCreateRoomMessage(room string, capacity int) (Message, error) {
 	if client.token == "" {
-		return Message{}, errors.New("Unable to create a room as we have not authenticated yet!")
+		return Message{}, errors.New("Unable to create a Room as we have not authenticated yet!")
 	}
 
 	return BuildMessage(CREATE_ROOM,
 		CreateRoomMessage{
-			room:     room,
-			capacity: capacity,
-			token:    client.token,
+			Room:     room,
+			Capacity: capacity,
+			Token:    client.token,
 		}), nil
 }
 
 func (client *ChatClient) BuildCloseRoomMessage(room string) (Message, error) {
 	if client.token == "" {
-		return Message{}, errors.New("Unable to close a room as we have not authenticated yet!")
+		return Message{}, errors.New("Unable to close a Room as we have not authenticated yet!")
 	}
 
 	return BuildMessage(CLOSE_ROOM,
 		CloseRoomMessage{
-			room:  room,
-			token: client.token,
+			Room:  room,
+			Token: client.token,
 		}), nil
 }
 
 func (client *ChatClient) BuildSendMessageMessage(content string, room string) (Message, error) {
 	if client.token == "" {
-		return Message{}, errors.New("Unable to send message as we have not authenticated yet!")
+		return Message{}, errors.New("Unable to send Message as we have not authenticated yet!")
 	}
 
 	return BuildMessage(SEND_MSG,
 		SendTextMessage{
-			token:   client.token,
-			message: TextMessage{username: client.username, text: content, room: room},
+			Token:   client.token,
+			Message: TextMessage{Username: client.username, Text: content, Room: room},
 		}), nil
 }
 
 func (client *ChatClient) ListenToServer(notify chan<- Message) error {
 	decoder := gob.NewDecoder(client.conn)
+	var empty_message Message
 
 	for {
 		message := Message{}
 		decoder.Decode(&message)
+
+		if message == empty_message {
+			// If we did not decode anything just sleep for a second and try again
+			time.Sleep(time.Second * 1)
+			continue
+		}
+
 		notify <- message
 	}
 
@@ -201,32 +220,32 @@ func (client *ChatClient) ListenToServer(notify chan<- Message) error {
 }
 
 func (client *ChatClient) HandleServerMessage(message Message) error {
-	// Interpret message
+	// Interpret Message
 	switch message.Command {
 	case TOKEN:
 		contents := message.Contents.(TokenMessage)
-		client.token = contents.token
+		client.token = contents.Token
 	case RECV_MSG:
 		contents := message.Contents.(RecvTextMessage)
-		client.DisplayTextMessage(contents.message)
+		client.DisplayTextMessage(contents.Message)
 	case LIST_ROOMS:
 		contents := message.Contents.(ListRoomsMessage)
 		client.DisplayRoomListingMessage(contents)
 	default:
-		// Unknown message command
-		return errors.New("Unable to determine incoming message type from server.")
+		// Unknown Message command
+		return errors.New("Unable to determine incoming Message type from server.")
 	}
 
 	return nil
 }
 
 func (client *ChatClient) DisplayTextMessage(message TextMessage) {
-	fmt.Println("["+message.room+"] "+message.username+":", message.text)
+	fmt.Println("["+message.Room+"] "+message.Username+":", message.Text)
 }
 
 func (client *ChatClient) DisplayRoomListingMessage(message ListRoomsMessage) {
 	fmt.Println("Room Listing:")
-	for i, room := range message.rooms {
+	for i, room := range message.Rooms {
 		fmt.Println(string(i)+":", room)
 	}
 }

@@ -33,11 +33,15 @@ func (server ChatServer) Listen(connection_string string) error {
 		return err
 	}
 
+	fmt.Println("Listening on", connection_string)
+
 	for {
 		connection, err := socket.Accept()
 		if err != nil {
 			fmt.Println(UNABLE_TO_ACCEPT_MESSAGE)
 		}
+
+		fmt.Println("Accepted incoming connection.")
 		go server.HandleIncomingConnection(connection)
 	}
 }
@@ -62,7 +66,7 @@ func (server *ChatServer) HandleIncomingConnection(connection net.Conn) {
 }
 
 func (server *ChatServer) HandleMessage(message Message) (Message, error) {
-	// If the message provides a token, ensure it's valid
+	// If the Message provides a Token, ensure it's valid
 	passes, err := server.messagePassesTokenTest(message)
 	if err != nil {
 		return Message{}, err
@@ -71,41 +75,44 @@ func (server *ChatServer) HandleMessage(message Message) (Message, error) {
 	if !passes {
 		return Message{}, errors.New(INVALID_TOKEN)
 	}
-	// We assume now that any requests that require a token are valid (authenticated)
+	// We assume now that any requests that require a Token are valid (authenticated)
 
-	// Get the room if this message contains one
-	// This saves us having the same room extraction code for each message type
+	// Get the Room if this Message contains one
+	// This saves us having the same Room extraction code for each Message type
 	room, err := server.getRoomIfRequired(message)
 	if err != nil {
 		return Message{}, err
 	}
 
-	// Get the user if this message has one
-	// This saves us having the same user extraction code for each message type
+	// Get the user if this Message has one
+	// This saves us having the same user extraction code for each Message type
 	user, err := server.getUserIfRequired(message)
 	if err != nil {
 		return Message{}, err
 	}
 
-	// Interpret message
+	// Interpret Message
 	switch message.Command {
 	case AUTHENTICATE:
+		fmt.Println("We have a valid authentication attempt!")
 		contents := message.Contents.(AuthenticateMessage)
-		user, err := server.user_manager.AuthenticateUser(contents.username, contents.password_hash)
+
+		fmt.Println("Parsed the contents of the message!")
+		user, err := server.user_manager.AuthenticateUser(contents.Username, contents.PasswordHash)
 		if err != nil {
 			return Message{}, err
 		}
 
-		// Respond with the authentication token
-		return BuildMessage(TOKEN, TokenMessage{username: user.username, token: user.GetToken()}), nil
+		// Respond with the authentication Token
+		return BuildMessage(TOKEN, TokenMessage{Username: user.username, Token: user.GetToken()}), nil
 	case SEND_MSG:
 		contents := message.Contents.(SendTextMessage)
 		for _, user := range room.users {
-			SendRemoteCommand(user.conn, BuildMessage(RECV_MSG, RecvTextMessage{message: contents.message}))
+			SendRemoteCommand(user.conn, BuildMessage(RECV_MSG, RecvTextMessage{Message: contents.Message}))
 		}
 	case JOIN_ROOM:
 		contents := message.Contents.(JoinRoomMessage)
-		if err := room.AddUser(user, contents.isSuperUser); err != nil {
+		if err := room.AddUser(user, contents.IsSuperUser); err != nil {
 			return Message{}, err
 		}
 	case LEAVE_ROOM:
@@ -114,13 +121,13 @@ func (server *ChatServer) HandleMessage(message Message) (Message, error) {
 		}
 	case CREATE_ROOM:
 		contents := message.Contents.(CreateRoomMessage)
-		_, err := server.room_manager.CreateRoom(contents.room, contents.capacity)
+		_, err := server.room_manager.CreateRoom(contents.Room, contents.Capacity)
 		if err != nil {
 			return Message{}, err
 		}
 	case CLOSE_ROOM:
 		contents := message.Contents.(CloseRoomMessage)
-		if _, err := server.room_manager.CloseRoom(contents.room); err != nil {
+		if _, err := server.room_manager.CloseRoom(contents.Room); err != nil {
 			return Message{}, err
 		}
 	}
@@ -129,20 +136,20 @@ func (server *ChatServer) HandleMessage(message Message) (Message, error) {
 }
 
 func (server *ChatServer) messagePassesTokenTest(message Message) (bool, error) {
-	// Ensure any message requiring a token is valid
+	// Ensure any Message requiring a Token is valid
 	var token string
 
 	switch message.Command {
 	case SEND_MSG:
-		token = message.Contents.(SendTextMessage).token
+		token = message.Contents.(SendTextMessage).Token
 	case JOIN_ROOM:
-		token = message.Contents.(JoinRoomMessage).token
+		token = message.Contents.(JoinRoomMessage).Token
 	case LEAVE_ROOM:
-		token = message.Contents.(LeaveRoomMessage).token
+		token = message.Contents.(LeaveRoomMessage).Token
 	case CREATE_ROOM:
-		token = message.Contents.(CreateRoomMessage).token
+		token = message.Contents.(CreateRoomMessage).Token
 	case CLOSE_ROOM:
-		token = message.Contents.(CloseRoomMessage).token
+		token = message.Contents.(CloseRoomMessage).Token
 	default:
 		return true, nil
 	}
@@ -160,15 +167,15 @@ func (server *ChatServer) getRoomIfRequired(message Message) (*ChatRoom, error) 
 
 	switch message.Command {
 	case SEND_MSG:
-		name = message.Contents.(SendTextMessage).message.room
+		name = message.Contents.(SendTextMessage).Message.Room
 	case JOIN_ROOM:
-		name = message.Contents.(JoinRoomMessage).room
+		name = message.Contents.(JoinRoomMessage).Room
 	case LEAVE_ROOM:
-		name = message.Contents.(LeaveRoomMessage).room
+		name = message.Contents.(LeaveRoomMessage).Room
 	case CREATE_ROOM:
-		name = message.Contents.(CreateRoomMessage).room
+		name = message.Contents.(CreateRoomMessage).Room
 	case CLOSE_ROOM:
-		name = message.Contents.(CloseRoomMessage).room
+		name = message.Contents.(CloseRoomMessage).Room
 	default:
 		return nil, nil
 	}
@@ -186,11 +193,11 @@ func (server *ChatServer) getUserIfRequired(message Message) (*User, error) {
 
 	switch message.Command {
 	case SEND_MSG:
-		name = message.Contents.(SendTextMessage).message.username
+		name = message.Contents.(SendTextMessage).Message.Username
 	case JOIN_ROOM:
-		name = message.Contents.(JoinRoomMessage).username
+		name = message.Contents.(JoinRoomMessage).Username
 	case LEAVE_ROOM:
-		name = message.Contents.(LeaveRoomMessage).username
+		name = message.Contents.(LeaveRoomMessage).Username
 	default:
 		return nil, nil
 	}

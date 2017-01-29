@@ -39,7 +39,7 @@ func (user *User) generateToken() {
 		token[i] = TOKEN_LETTERS[rand.Intn(len(TOKEN_LETTERS))]
 	}
 
-	// Return the token (in string form) and the expiry for the token
+	// Return the Token (in string form) and the expiry for the Token
 	user.token = string(token)
 	user.token_expiry = time.Now()
 }

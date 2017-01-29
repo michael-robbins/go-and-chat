@@ -19,6 +19,10 @@ func main() {
 		return
 	}
 
+	// Register all the Message struct subtypes for encoding/decoding
+	gochat.RegisterStructs()
+
+	// Create the server and listen for incoming connections
 	chatServer, _ := gochat.NewChatServer()
 
 	if err := chatServer.Listen(*server); err != nil {

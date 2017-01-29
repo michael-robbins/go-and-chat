@@ -16,6 +16,9 @@ func getUserInput(message string) string {
 
 	text, _ := reader.ReadString('\n')
 
+	// Strip the newline character
+	text = text[:len(text)-1]
+
 	return text
 }
 
@@ -24,27 +27,26 @@ func getClientCommandsOption(client_commands []COMMAND) int {
 
 	// Inner for loop will break when we have a valid choice
 	for {
-		if number != -1 {
-			break
-		}
-
 		fmt.Println("Please select an option:")
 		for i, command := range client_commands {
-			fmt.Print(i, " ", "=", " ", command, "\n")
+			fmt.Print(i + 1, " ", "=", " ", command, "\n")
 		}
 
 		text := getUserInput("Choice (number): ")
-		fmt.Println(text)
 		if text == "quit" || text == "q" {
 			return -1
 		}
 
 		var err error
 		number, err = strconv.Atoi(text)
+
 		if err != nil || number < 1 || number > len(client_commands) {
-			fmt.Println("Invalid choice (Only '1' -> '" + string(len(client_commands)) + "').")
+			// Invalid choice, force the for loop to iterate
+			fmt.Print("Invalid choice (Valid options are: 1 -> ", len(client_commands), ").\n")
+			continue
 		}
 
+		// Passed our validation, break the loop
 		break
 	}
 

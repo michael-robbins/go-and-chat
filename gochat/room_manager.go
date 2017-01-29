@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	ROOM_UNKNOWN_STORAGE_STRATEGY = "Unable to determine room manager storage stratergy?"
+	ROOM_UNKNOWN_STORAGE_STRATEGY = "Unable to determine Room manager storage stratergy?"
 	ROOM_DOES_NOT_EXIST_MESSAGE   = "Room doesn't exist."
 	ROOM_CLOSED_MESSAGE           = "Room is closed."
 )
@@ -50,7 +50,7 @@ func (manager *RoomManager) GetRoomFromDatabaseStorage(room_name string) (*ChatR
 }
 
 func (manager *RoomManager) GetRoom(name string) (*ChatRoom, error) {
-	// If the room has already been extracted from storage, just return them
+	// If the Room has already been extracted from storage, just return them
 	if room, ok := manager.room_cache[name]; ok {
 		if room.closed {
 			return nil, errors.New(ROOM_CLOSED_MESSAGE)
@@ -59,7 +59,7 @@ func (manager *RoomManager) GetRoom(name string) (*ChatRoom, error) {
 		return room, nil
 	}
 
-	// Otherwise extract the room from storage, putting it into the cache as well
+	// Otherwise extract the Room from storage, putting it into the cache as well
 	var err error
 	var room *ChatRoom
 
@@ -76,7 +76,7 @@ func (manager *RoomManager) GetRoom(name string) (*ChatRoom, error) {
 		return nil, err
 	}
 
-	// Add the room to the cache regardless of if it's closed or not
+	// Add the Room to the cache regardless of if it's closed or not
 	manager.room_cache[name] = room
 
 	if room.closed {
@@ -92,7 +92,7 @@ func (manager *RoomManager) CreateRoom(name string, capacity int) (*ChatRoom, er
 		capacity: capacity,
 	}
 
-	// Ensure the room is stored and not just in memory
+	// Ensure the Room is stored and not just in memory
 	manager.PersistRoom(&room)
 
 	return &room, nil
@@ -100,7 +100,7 @@ func (manager *RoomManager) CreateRoom(name string, capacity int) (*ChatRoom, er
 
 func (manager *RoomManager) CloseRoom(name string) (bool, error) {
 	if room, ok := manager.room_cache[name]; ok {
-		// Mark the room as closed
+		// Mark the Room as closed
 		room.closed = true
 		manager.PersistRoom(room)
 

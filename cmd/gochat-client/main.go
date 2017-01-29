@@ -21,6 +21,10 @@ func main() {
 		return
 	}
 
+	// Register all the Message struct subtypes for encoding/decoding
+	gochat.RegisterStructs()
+
+	// Create the new client instance
 	client, _ := gochat.NewChatClient()
 
 	connection, err := client.Connect(*connection_string)
@@ -29,6 +33,7 @@ func main() {
 		return
 	}
 
+	// Attempt to authenticate the user
 	reader := bufio.NewReader(os.Stdin)
 
 	fmt.Print("Enter Username: ")

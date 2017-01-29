@@ -25,56 +25,70 @@ type Message struct {
 }
 
 type AuthenticateMessage struct {
-	username      string
-	password_hash string
+	Username     string
+	PasswordHash string
 }
 
 type TokenMessage struct {
-	username string
-	token    string
+	Username string
+	Token    string
 }
 
 type TextMessage struct {
-	username string
-	room     string
-	text     string
+	Username string
+	Room     string
+	Text     string
 }
 
 type SendTextMessage struct {
-	token   string
-	message TextMessage
+	Token   string
+	Message TextMessage
 }
 
 type RecvTextMessage struct {
-	message TextMessage
+	Message TextMessage
 }
 
 type ListRoomsMessage struct {
-	rooms []string
+	Rooms []string
 }
 
 type JoinRoomMessage struct {
-	username    string
-	room        string
-	isSuperUser bool
-	token       string
+	Username    string
+	Room        string
+	IsSuperUser bool
+	Token       string
 }
 
 type LeaveRoomMessage struct {
-	username string
-	room     string
-	token    string
+	Username string
+	Room     string
+	Token    string
 }
 
 type CreateRoomMessage struct {
-	room     string
-	capacity int
-	token    string
+	Room     string
+	Capacity int
+	Token    string
 }
 
 type CloseRoomMessage struct {
-	room  string
-	token string
+	Room  string
+	Token string
+}
+
+func RegisterStructs() {
+	// Register all the various subtypes of messages so gob can encode/decode them correctly
+	gob.Register(AuthenticateMessage{})
+	gob.Register(TokenMessage{})
+	gob.Register(TextMessage{})
+	gob.Register(SendTextMessage{})
+	gob.Register(RecvTextMessage{})
+	gob.Register(ListRoomsMessage{})
+	gob.Register(JoinRoomMessage{})
+	gob.Register(LeaveRoomMessage{})
+	gob.Register(CreateRoomMessage{})
+	gob.Register(CloseRoomMessage{})
 }
 
 func SendRemoteCommand(connection net.Conn, message Message) error {

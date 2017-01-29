@@ -148,12 +148,12 @@ func (manager *UserManager) AuthenticateUser(username string, password_sha256 st
 }
 
 func (manager *UserManager) TokenIsValid(token string) (bool, error) {
-	// We can safely assert here that if the token does not belong to a user in the cache, then the token is invalid
+	// We can safely assert here that if the Token does not belong to a user in the cache, then the Token is invalid
 
 	for _, user := range manager.user_cache {
 		if user.token == token {
 			if user.token_expiry.After(time.Now().Add(time.Hour * -24)) {
-				// Token is valid and token has not expired yet, this is a valid request
+				// Token is valid and Token has not expired yet, this is a valid request
 				return true, nil
 			} else {
 				return false, nil
@@ -161,6 +161,6 @@ func (manager *UserManager) TokenIsValid(token string) (bool, error) {
 		}
 	}
 
-	// User was not found or their token doesn't exist
+	// User was not found or their Token doesn't exist
 	return false, nil
 }
