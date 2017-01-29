@@ -8,30 +8,65 @@ import (
 	"time"
 
 	"github.com/michael-robbins/go-and-chat/gochat"
+	log "github.com/Sirupsen/logrus"
 )
+
+func printDefaults(usageTitle string, error string) {
+	fmt.Fprintln(os.Stderr, usageTitle)
+	flag.PrintDefaults()
+	fmt.Fprintln(os.Stderr, error)
+}
 
 func main() {
 	connection_string := flag.String("server", "", "'hostname:port' connection string to the server")
+	verbose := flag.Bool("v", false, "Enables verbose logging")
+	debug := flag.Bool("debug", false, "Enables debug logging")
+	logFile := flag.String("logfile", "", "Log file location, default to StdErr")
 	flag.Parse()
 
+	usageTitle := "Usage of GoChat Client:\n"
+
 	if *connection_string == "" {
-		fmt.Fprintln(os.Stderr, "Usage of GoChat Client:")
-		flag.PrintDefaults()
-		fmt.Fprintln(os.Stderr, "\nMissing -server hostname:port")
+		printDefaults(usageTitle, "\nMissing -server hostname:port")
 		return
 	}
+
+	// Set up logging
+	if *debug == true {
+		log.SetLevel(log.DebugLevel)
+	} else if *verbose == true {
+		log.SetLevel(log.InfoLevel)
+	} else {
+		log.SetLevel(log.WarnLevel)
+	}
+
+	if *logFile != "" {
+		f, err := os.OpenFile(*logFile, os.O_WRONLY | os.O_CREATE, 0755)
+		if err != nil {
+			printDefaults(usageTitle, "Unable to log to the request file, unable to open/create it.")
+			return
+		}
+
+		log.SetOutput(f)
+	}
+
+	logger := log.WithFields(log.Fields{
+		"type": "GoChatClient",
+	})
 
 	// Register all the Message struct subtypes for encoding/decoding
 	gochat.RegisterStructs()
 
 	// Create the new client instance
-	client, _ := gochat.NewChatClient()
+	client, _ := gochat.NewChatClient(logger)
 
+	logger.Debug("Attempting to connect to: " + *connection_string)
 	connection, err := client.Connect(*connection_string)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+	logger.Debug("Successfully connected to: " + *connection_string)
 
 	// Attempt to authenticate the user
 	reader := bufio.NewReader(os.Stdin)
@@ -45,6 +80,8 @@ func main() {
 	if err := client.Authenticate(username, password); err != nil {
 		fmt.Println(err)
 	}
+
+	logger.Debug("Successfully sent Authentication request")
 
 	// Spin off a thread to listen for server events
 	server_messages := make(chan gochat.Message, 1)

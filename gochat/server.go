@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"net"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 const (
@@ -15,12 +17,14 @@ const (
 type ChatServer struct {
 	user_manager *UserManager
 	room_manager *RoomManager
+	logger       *log.Entry
 }
 
-func NewChatServer() (*ChatServer, error) {
+func NewChatServer(logger *log.Entry) (*ChatServer, error) {
 	chat_server := ChatServer{
 		user_manager: NewUserManager(),
 		room_manager: NewRoomManager(),
+		logger: logger,
 	}
 
 	return &chat_server, nil

@@ -6,26 +6,59 @@ import (
 	"os"
 
 	"github.com/michael-robbins/go-and-chat/gochat"
+	log "github.com/Sirupsen/logrus"
 )
+
+func printDefaults(usageTitle string, error string) {
+	fmt.Fprintln(os.Stderr, usageTitle)
+	flag.PrintDefaults()
+	fmt.Fprintln(os.Stderr, error)
+}
 
 func main() {
 	server := flag.String("server", "", "'hostname:port' what we will listen on")
+	verbose := flag.Bool("v", false, "Enables verbose logging")
+	debug := flag.Bool("debug", false, "Enables debug logging")
+	logFile := flag.String("logfile", "", "Log file location, default to StdErr")
 	flag.Parse()
 
+	usageTitle := "Usage of GoChat Server:\n"
+
 	if *server == "" {
-		fmt.Fprintln(os.Stderr, "Usage of GoChat Server:")
-		flag.PrintDefaults()
-		fmt.Fprintln(os.Stderr, "\nMissing -server hostname:port")
+		printDefaults(usageTitle, "\nMissing -server hostname:port")
 		return
 	}
+
+	// Set up logging
+	if *debug == true {
+		log.SetLevel(log.DebugLevel)
+	} else if *verbose == true {
+		log.SetLevel(log.InfoLevel)
+	} else {
+		log.SetLevel(log.WarnLevel)
+	}
+
+	if *logFile != "" {
+		f, err := os.OpenFile(*logFile, os.O_WRONLY | os.O_CREATE, 0755)
+		if err != nil {
+			printDefaults(usageTitle, "Unable to log to the request file, unable to open/create it.")
+			return
+		}
+
+		log.SetOutput(f)
+	}
+
+	logger := log.WithFields(log.Fields{
+		"type": "GoChatServer",
+	})
 
 	// Register all the Message struct subtypes for encoding/decoding
 	gochat.RegisterStructs()
 
 	// Create the server and listen for incoming connections
-	chatServer, _ := gochat.NewChatServer()
+	chatServer, _ := gochat.NewChatServer(logger)
 
 	if err := chatServer.Listen(*server); err != nil {
-		fmt.Println(err)
+		logger.Error(err)
 	}
 }

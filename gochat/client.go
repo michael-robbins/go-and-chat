@@ -8,16 +8,19 @@ import (
 	"fmt"
 	"net"
 	"time"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 type ChatClient struct {
 	conn     net.Conn
+	logger   *log.Entry
 	username string
 	token    string
 }
 
-func NewChatClient() (*ChatClient, error) {
-	return &ChatClient{}, nil
+func NewChatClient(logger *log.Entry) (*ChatClient, error) {
+	return &ChatClient{logger: logger}, nil
 }
 
 func (client *ChatClient) Connection() (net.Conn, error) {
