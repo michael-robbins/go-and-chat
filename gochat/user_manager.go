@@ -13,8 +13,8 @@ import (
 type STORAGE_STRATEGY string
 
 const (
-	FILE     = STORAGE_STRATEGY("FILE")
-	DATABASE = STORAGE_STRATEGY("DATABASE")
+	FILE     = STORAGE_STRATEGY("file")
+	DATABASE = STORAGE_STRATEGY("database")
 )
 
 const (
@@ -22,12 +22,12 @@ const (
 )
 
 type UserManager struct {
-	strategy   STORAGE_STRATEGY
-	user_cache map[string]*User
+	config		ServerConfig
+	user_cache	map[string]*User
 }
 
-func NewUserManager() *UserManager {
-	return &UserManager{}
+func NewUserManager(config ServerConfig) *UserManager {
+	return &UserManager{config: config}
 }
 
 func (manager *UserManager) InitialiseFileStorage()     {}
@@ -42,7 +42,7 @@ func (manager *UserManager) PersistUserToDatabaseStorage(user *User) (bool, erro
 }
 
 func (manager *UserManager) PersistUser(user *User) (bool, error) {
-	switch manager.strategy {
+	switch manager.config.Method {
 	case FILE:
 		return manager.PersistUserToFileStorage(user)
 	case DATABASE:
@@ -70,7 +70,7 @@ func (manager *UserManager) GetUser(username string) (*User, error) {
 	var err error
 	var user *User
 
-	switch manager.strategy {
+	switch manager.config.Method {
 	case DATABASE:
 		user, err = manager.GetUserFromDatabaseStorage(username)
 	case FILE:

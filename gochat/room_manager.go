@@ -4,19 +4,13 @@ import (
 	"errors"
 )
 
-const (
-	ROOM_UNKNOWN_STORAGE_STRATEGY = "Unable to determine Room manager storage stratergy?"
-	ROOM_DOES_NOT_EXIST_MESSAGE   = "Room doesn't exist."
-	ROOM_CLOSED_MESSAGE           = "Room is closed."
-)
-
 type RoomManager struct {
-	strategy   STORAGE_STRATEGY
+	config		ServerConfig
 	room_cache map[string]*ChatRoom
 }
 
-func NewRoomManager() *RoomManager {
-	return &RoomManager{}
+func NewRoomManager(config ServerConfig) *RoomManager {
+	return &RoomManager{config: config}
 }
 
 func (manager *RoomManager) InitialiseFileStorage()     {}
@@ -31,7 +25,7 @@ func (manager *RoomManager) PersistRoomToDatabaseStorage(room *ChatRoom) (bool, 
 }
 
 func (manager *RoomManager) PersistRoom(room *ChatRoom) (bool, error) {
-	switch manager.strategy {
+	switch manager.config.Method {
 	case FILE:
 		return manager.PersistRoomToFileStorage(room)
 	case DATABASE:
@@ -53,7 +47,7 @@ func (manager *RoomManager) GetRoom(name string) (*ChatRoom, error) {
 	// If the Room has already been extracted from storage, just return them
 	if room, ok := manager.room_cache[name]; ok {
 		if room.closed {
-			return nil, errors.New(ROOM_CLOSED_MESSAGE)
+			return nil, errors.New("Room is closed.")
 		}
 
 		return room, nil
@@ -63,13 +57,13 @@ func (manager *RoomManager) GetRoom(name string) (*ChatRoom, error) {
 	var err error
 	var room *ChatRoom
 
-	switch manager.strategy {
+	switch manager.config.Method {
 	case DATABASE:
 		room, err = manager.GetRoomFromDatabaseStorage(name)
 	case FILE:
 		room, err = manager.GetRoomFromFileStorage(name)
 	default:
-		return nil, errors.New(ROOM_UNKNOWN_STORAGE_STRATEGY)
+		return nil, errors.New("Unable to determine Room manager storage stratergy?")
 	}
 
 	if err != nil {
@@ -80,7 +74,7 @@ func (manager *RoomManager) GetRoom(name string) (*ChatRoom, error) {
 	manager.room_cache[name] = room
 
 	if room.closed {
-		return nil, errors.New(ROOM_CLOSED_MESSAGE)
+		return nil, errors.New("Room is closed.")
 	}
 
 	return room, nil
@@ -107,5 +101,5 @@ func (manager *RoomManager) CloseRoom(name string) (bool, error) {
 		return true, nil
 	}
 
-	return false, errors.New(ROOM_DOES_NOT_EXIST_MESSAGE)
+	return false, errors.New("Room doesn't exist.")
 }

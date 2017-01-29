@@ -1,0 +1,13 @@
+# Select the type of storage, 'file' or 'database'
+method: file
+
+# File based storage creates an SQLite3 DB
+file: /path/to/storage.sqlite3
+
+# Database bootstraps an empty database and uses that
+database:
+  product: postgresql
+  host: hostname
+  database: chatdb
+  user: chatdb
+  password: super-secret-password

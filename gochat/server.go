@@ -3,9 +3,12 @@ package gochat
 import (
 	"encoding/gob"
 	"errors"
+	"io/ioutil"
 	"net"
+	"path/filepath"
 
 	log "github.com/Sirupsen/logrus"
+	yaml "gopkg.in/yaml.v2"
 )
 
 type ChatServer struct {
@@ -14,10 +17,24 @@ type ChatServer struct {
 	logger       *log.Entry
 }
 
-func NewChatServer(logger *log.Entry) (*ChatServer, error) {
+type ServerConfig struct {
+	Method		STORAGE_STRATEGY	`yaml:"method"`
+	File		string				`yaml:"file"`
+	Database	DatabaseConfig		`yaml:"database"`
+}
+
+type DatabaseConfig struct {
+	Product		string  `yaml:"product"`
+	Host   		string  `yaml:"host"`
+	Database	string  `yaml:"database"`
+	User		string	`yaml:"user"`
+	Password	string	`yaml:"password"`
+}
+
+func NewChatServer(logger *log.Entry, config ServerConfig) (*ChatServer, error) {
 	chat_server := ChatServer{
-		user_manager: NewUserManager(),
-		room_manager: NewRoomManager(),
+		user_manager: NewUserManager(config),
+		room_manager: NewRoomManager(config),
 		logger: logger,
 	}
 
@@ -31,7 +48,7 @@ func (server ChatServer) Listen(connection_string string) error {
 		return err
 	}
 
-	server.logger.Info("Listening on: " + connection_string)
+	server.logger.Info("Listening on " + connection_string)
 
 	for {
 		connection, err := socket.Accept()
@@ -208,4 +225,22 @@ func (server *ChatServer) getUserIfRequired(message Message) (*User, error) {
 	}
 
 	return user, nil
+}
+
+func LoadServerConfigurationFile(filename string) (ServerConfig, error) {
+	file, _ := filepath.Abs(filename)
+
+	yamlFile, err := ioutil.ReadFile(file)
+	if err != nil {
+		return ServerConfig{}, err
+	}
+
+	var config ServerConfig
+
+	err = yaml.Unmarshal(yamlFile, &config)
+	if err != nil {
+		return ServerConfig{}, err
+	}
+
+	return config, nil
 }

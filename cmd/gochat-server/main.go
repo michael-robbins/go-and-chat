@@ -9,6 +9,8 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
+
+
 func printDefaults(usageTitle string, error string) {
 	fmt.Fprintln(os.Stderr, usageTitle)
 	flag.PrintDefaults()
@@ -20,6 +22,7 @@ func main() {
 	verbose := flag.Bool("v", false, "Enables verbose logging")
 	debug := flag.Bool("debug", false, "Enables debug logging")
 	logFile := flag.String("logfile", "", "Log file location, default to StdErr")
+	configFile := flag.String("config", "", "Configuration file")
 	flag.Parse()
 
 	usageTitle := "Usage of GoChat Server:\n"
@@ -52,11 +55,19 @@ func main() {
 		"type": "GoChatServer",
 	})
 
+	// Parse the configuration file
+	config, err := gochat.LoadServerConfigurationFile(*configFile)
+	if err != nil {
+		logger.Error(err)
+		return
+	}
+	logger.Debug("Loaded configuration file")
+
 	// Register all the Message struct subtypes for encoding/decoding
 	gochat.RegisterStructs()
 
 	// Create the server and listen for incoming connections
-	chatServer, _ := gochat.NewChatServer(logger)
+	chatServer, _ := gochat.NewChatServer(logger, config)
 
 	if err := chatServer.Listen(*server); err != nil {
 		logger.Error(err)
