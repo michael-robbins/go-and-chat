@@ -63,7 +63,7 @@ func main() {
 	logger.Debug("Attempting to connect to: " + *connection_string)
 	connection, err := client.Connect(*connection_string)
 	if err != nil {
-		fmt.Println(err)
+		logger.Error(err)
 		return
 	}
 	logger.Debug("Successfully connected to: " + *connection_string)
@@ -78,10 +78,8 @@ func main() {
 	password, _ := reader.ReadString('\n')
 
 	if err := client.Authenticate(username, password); err != nil {
-		fmt.Println(err)
+		logger.Error(err)
 	}
-
-	logger.Debug("Successfully sent Authentication request")
 
 	// Spin off a thread to listen for server events
 	server_messages := make(chan gochat.Message, 1)
@@ -99,12 +97,12 @@ EventLoop:
 		case message := <-server_messages:
 			// Handle the server initiated message
 			if err := client.HandleServerMessage(message); err != nil {
-				fmt.Println(err)
+				logger.Error(err)
 			}
 		case message := <-client_messages:
 			// Handle the client initiated message
 			if err := gochat.SendRemoteCommand(connection, message); err != nil {
-				fmt.Println(err)
+				logger.Error(err)
 			}
 		case _ = <-exit_decision:
 			break EventLoop
@@ -114,5 +112,5 @@ EventLoop:
 		time.Sleep(time.Second)
 	}
 
-	fmt.Println("Quitting.")
+	logger.Info("Quitting!")
 }

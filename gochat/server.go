@@ -9,11 +9,6 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
-const (
-	UNABLE_TO_ACCEPT_MESSAGE = "Unable to accept connection correctly."
-	INVALID_TOKEN            = "Token is invalid."
-)
-
 type ChatServer struct {
 	user_manager *UserManager
 	room_manager *RoomManager
@@ -37,15 +32,15 @@ func (server ChatServer) Listen(connection_string string) error {
 		return err
 	}
 
-	fmt.Println("Listening on", connection_string)
+	server.logger.Info("Listening on: " + connection_string)
 
 	for {
 		connection, err := socket.Accept()
 		if err != nil {
-			fmt.Println(UNABLE_TO_ACCEPT_MESSAGE)
+			server.logger.Error("Unable to accept connection correctly.")
 		}
 
-		fmt.Println("Accepted incoming connection.")
+		server.logger.Info("Accepted incoming connection")
 		go server.HandleIncomingConnection(connection)
 	}
 }
@@ -60,10 +55,11 @@ func (server *ChatServer) HandleIncomingConnection(connection net.Conn) {
 
 	reply, err := server.HandleMessage(message)
 	if err != nil {
-		fmt.Println(err)
+		server.logger.Error(err)
 		return
 	} else if message.Command != "" {
 		// Only send a reply if the command is not empty
+		server.logger.Debug("Sending response back to client")
 		encoder := gob.NewEncoder(connection)
 		encoder.Encode(reply)
 	}
@@ -77,7 +73,7 @@ func (server *ChatServer) HandleMessage(message Message) (Message, error) {
 	}
 
 	if !passes {
-		return Message{}, errors.New(INVALID_TOKEN)
+		return Message{}, errors.New("Token is invalid")
 	}
 	// We assume now that any requests that require a Token are valid (authenticated)
 
@@ -98,16 +94,17 @@ func (server *ChatServer) HandleMessage(message Message) (Message, error) {
 	// Interpret Message
 	switch message.Command {
 	case AUTHENTICATE:
-		fmt.Println("We have a valid authentication attempt!")
+		server.logger.Debug("We have a valid auth attempt!")
 		contents := message.Contents.(AuthenticateMessage)
 
-		fmt.Println("Parsed the contents of the message!")
+		server.logger.Debug("Parsed the contents of the Authentication message")
 		user, err := server.user_manager.AuthenticateUser(contents.Username, contents.PasswordHash)
 		if err != nil {
 			return Message{}, err
 		}
 
 		// Respond with the authentication Token
+		server.logger.Debug("Successfully authenticated user!")
 		return BuildMessage(TOKEN, TokenMessage{Username: user.username, Token: user.GetToken()}), nil
 	case SEND_MSG:
 		contents := message.Contents.(SendTextMessage)

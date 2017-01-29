@@ -52,6 +52,7 @@ func (client *ChatClient) Authenticate(username string, password string) error {
 	password_hash_hex := hex.EncodeToString(password_hash[:])
 
 	// Send off the authentication attempt, the response will be handled elsewhere
+	client.logger.Debug("Sending auth request to the server")
 	return SendRemoteCommand(client.conn,
 		BuildMessage(AUTHENTICATE, AuthenticateMessage{Username: username, PasswordHash: password_hash_hex}))
 }
