@@ -42,12 +42,13 @@ func main() {
 	}
 
 	if *logFile != "" {
-		f, err := os.OpenFile(*logFile, os.O_WRONLY | os.O_CREATE, 0755)
+		f, err := os.OpenFile(*logFile, os.O_WRONLY | os.O_CREATE, 0644)
 		if err != nil {
 			printDefaults(usageTitle, "Unable to log to the request file, unable to open/create it.")
 			return
 		}
 
+		// We default to os.Stderr if this isn't called
 		log.SetOutput(f)
 	}
 

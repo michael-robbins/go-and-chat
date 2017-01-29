@@ -10,54 +10,23 @@ import (
 	"time"
 )
 
-type STORAGE_STRATEGY string
-
-const (
-	FILE     = STORAGE_STRATEGY("file")
-	DATABASE = STORAGE_STRATEGY("database")
-)
-
 const (
 	SALT_BYTES = 64
 )
 
 type UserManager struct {
-	config		ServerConfig
+	storage		*StorageManager
 	user_cache	map[string]*User
 }
 
-func NewUserManager(config ServerConfig) *UserManager {
-	return &UserManager{config: config}
+func NewUserManager(storage *StorageManager) *UserManager {
+	return &UserManager{storage: storage}
 }
 
-func (manager *UserManager) InitialiseFileStorage()     {}
-func (manager *UserManager) InitialiseDatabaseStorage() {}
-
-func (manager *UserManager) PersistUserToFileStorage(user *User) (bool, error) {
-	return true, nil
-}
-
-func (manager *UserManager) PersistUserToDatabaseStorage(user *User) (bool, error) {
-	return true, nil
-}
+func (manager *UserManager) InitialiseUserManager()     {}
 
 func (manager *UserManager) PersistUser(user *User) (bool, error) {
-	switch manager.config.Method {
-	case FILE:
-		return manager.PersistUserToFileStorage(user)
-	case DATABASE:
-		return manager.PersistUserToDatabaseStorage(user)
-	default:
-		return false, errors.New("Unable to determine storage stratergy")
-	}
-}
-
-func (manager *UserManager) GetUserFromFileStorage(username string) (*User, error) {
-	return nil, nil
-}
-
-func (manager *UserManager) GetUserFromDatabaseStorage(username string) (*User, error) {
-	return nil, nil
+	return true, nil
 }
 
 func (manager *UserManager) GetUser(username string) (*User, error) {
@@ -70,14 +39,7 @@ func (manager *UserManager) GetUser(username string) (*User, error) {
 	var err error
 	var user *User
 
-	switch manager.config.Method {
-	case DATABASE:
-		user, err = manager.GetUserFromDatabaseStorage(username)
-	case FILE:
-		user, err = manager.GetUserFromFileStorage(username)
-	default:
-		return nil, errors.New("Unable to determine user manager storage stratergy?")
-	}
+	// TODO: Get user from storage manager
 
 	if err != nil {
 		return nil, err

@@ -18,23 +18,27 @@ type ChatServer struct {
 }
 
 type ServerConfig struct {
-	Method		STORAGE_STRATEGY	`yaml:"method"`
-	File		string				`yaml:"file"`
 	Database	DatabaseConfig		`yaml:"database"`
 }
 
 type DatabaseConfig struct {
 	Product		string  `yaml:"product"`
 	Host   		string  `yaml:"host"`
+	Port		string	`yaml:"port"`
 	Database	string  `yaml:"database"`
 	User		string	`yaml:"user"`
 	Password	string	`yaml:"password"`
 }
 
 func NewChatServer(logger *log.Entry, config ServerConfig) (*ChatServer, error) {
+	storageManager, err := NewStorageManager(config.Database)
+	if err != nil {
+		return &ChatServer{}, err
+	}
+
 	chat_server := ChatServer{
-		user_manager: NewUserManager(config),
-		room_manager: NewRoomManager(config),
+		user_manager: NewUserManager(storageManager),
+		room_manager: NewRoomManager(storageManager),
 		logger: logger,
 	}
 

@@ -5,42 +5,18 @@ import (
 )
 
 type RoomManager struct {
-	config		ServerConfig
-	room_cache map[string]*ChatRoom
+	storage		*StorageManager
+	room_cache	map[string]*ChatRoom
 }
 
-func NewRoomManager(config ServerConfig) *RoomManager {
-	return &RoomManager{config: config}
+func NewRoomManager(storage *StorageManager) *RoomManager {
+	return &RoomManager{storage: storage}
 }
 
-func (manager *RoomManager) InitialiseFileStorage()     {}
-func (manager *RoomManager) InitialiseDatabaseStorage() {}
-
-func (manager *RoomManager) PersistRoomToFileStorage(room *ChatRoom) (bool, error) {
-	return true, nil
-}
-
-func (manager *RoomManager) PersistRoomToDatabaseStorage(room *ChatRoom) (bool, error) {
-	return true, nil
-}
+func (manager *RoomManager) InitialiseRoomManager() {}
 
 func (manager *RoomManager) PersistRoom(room *ChatRoom) (bool, error) {
-	switch manager.config.Method {
-	case FILE:
-		return manager.PersistRoomToFileStorage(room)
-	case DATABASE:
-		return manager.PersistRoomToDatabaseStorage(room)
-	default:
-		return false, errors.New("Unable to determine storage stratergy")
-	}
-}
-
-func (manager *RoomManager) GetRoomFromFileStorage(room_name string) (*ChatRoom, error) {
-	return nil, nil
-}
-
-func (manager *RoomManager) GetRoomFromDatabaseStorage(room_name string) (*ChatRoom, error) {
-	return nil, nil
+	return true, nil
 }
 
 func (manager *RoomManager) GetRoom(name string) (*ChatRoom, error) {
@@ -57,14 +33,7 @@ func (manager *RoomManager) GetRoom(name string) (*ChatRoom, error) {
 	var err error
 	var room *ChatRoom
 
-	switch manager.config.Method {
-	case DATABASE:
-		room, err = manager.GetRoomFromDatabaseStorage(name)
-	case FILE:
-		room, err = manager.GetRoomFromFileStorage(name)
-	default:
-		return nil, errors.New("Unable to determine Room manager storage stratergy?")
-	}
+	// TODO: Get room from storage manager
 
 	if err != nil {
 		return nil, err
