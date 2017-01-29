@@ -3,7 +3,6 @@ package gochat
 import (
 	"encoding/gob"
 	"errors"
-	"fmt"
 	"net"
 
 	log "github.com/Sirupsen/logrus"
