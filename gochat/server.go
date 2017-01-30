@@ -125,7 +125,7 @@ func (server *ChatServer) HandleMessage(message Message) (Message, error) {
 
 		// Respond with the authentication Token
 		server.logger.Debug("Successfully authenticated user!")
-		return BuildMessage(TOKEN, TokenMessage{Username: user.username, Token: user.GetToken()}), nil
+		return BuildMessage(TOKEN, TokenMessage{Username: user.Username, Token: user.GetToken()}), nil
 	case SEND_MSG:
 		contents := message.Contents.(SendTextMessage)
 		for _, user := range room.users {
@@ -183,7 +183,7 @@ func (server *ChatServer) messagePassesTokenTest(message Message) (bool, error) 
 	return false, nil
 }
 
-func (server *ChatServer) getRoomIfRequired(message Message) (*ChatRoom, error) {
+func (server *ChatServer) getRoomIfRequired(message Message) (*Room, error) {
 	var name string
 
 	switch message.Command {

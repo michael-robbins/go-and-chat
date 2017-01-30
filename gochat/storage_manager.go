@@ -1,26 +1,26 @@
 package gochat
 
 import (
-	"database/sql"
 	"errors"
+	"fmt"
 
+	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
-	"fmt"
 )
 
 type StorageManager struct {
 	config		DatabaseConfig
-	db			*sql.DB
+	db			*sqlx.DB
 }
 
 func NewStorageManager(config DatabaseConfig) (*StorageManager, error) {
-	var db *sql.DB
+	var db *sqlx.DB
 	var err error
 
 	switch config.Product {
 	case "sqlite":
-		db, err = sql.Open("sqlite3", config.Database)
+		db, err = sqlx.Open("sqlite3", config.Database)
 	case "postgresql":
 		connection_string := fmt.Sprint(
 			"dbname="+config.Database,
@@ -39,7 +39,7 @@ func NewStorageManager(config DatabaseConfig) (*StorageManager, error) {
 			connection_string += " port="+config.Port
 		}
 
-		db, err = sql.Open("postgres", connection_string)
+		db, err = sqlx.Open("postgres", connection_string)
 	default:
 		return &StorageManager{}, errors.New("Unable to determine DB type")
 	}
@@ -54,3 +54,4 @@ func NewStorageManager(config DatabaseConfig) (*StorageManager, error) {
 func (manager StorageManager) CloseStorage() error {
 	return manager.db.Close()
 }
+

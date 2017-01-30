@@ -14,6 +14,22 @@ const (
 	SALT_BYTES = 64
 )
 
+const (
+	CREATE_USER_SQL = "INSERT INTO users (username, salt, password_sha256, deleted) VALUES (?, ?, ?, ?)"
+	UPDATE_USERNAME_SQL = "UPDATE users SET username=? WHERE username=?"
+	UPDATE_PASSWORD_SQL = "UPDATE users SET username=? WHERE username=?"
+	DELETE_USER_SQL = "UPDATE users SET deleted=true WHERE username=?"
+	GET_USER_SQL = "SELECT * FROM users WHERE username=?"
+	USER_SCHEMA = `
+	CREATE TABLE users (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		username TEXT,
+		salt TEXT,
+		password_sha256	TEXT,
+		deleted BOOLEAN
+	)`
+)
+
 type UserManager struct {
 	storage		*StorageManager
 	user_cache	map[string]*User
@@ -45,7 +61,7 @@ func (manager *UserManager) GetUser(username string) (*User, error) {
 		return nil, err
 	}
 
-	manager.user_cache[user.username] = user
+	manager.user_cache[user.Username] = user
 	return user, nil
 }
 
@@ -63,7 +79,7 @@ func (manager *UserManager) CreateUser(username string, password string) (*User,
 	salted_hash := sha256.Sum256(append(salt, password_hash[:]...))
 
 	user := User{
-		username:        username,
+		Username:        username,
 		salt:            hex.EncodeToString(salt),
 		password_sha256: hex.EncodeToString(salted_hash[:]),
 	}

@@ -12,7 +12,7 @@ const (
 )
 
 type User struct {
-	username        string
+	Username        string
 	token           string
 	token_expiry    time.Time
 	salt            string
