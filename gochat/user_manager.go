@@ -16,7 +16,6 @@ const (
 
 const (
 	CREATE_USER_SQL = "INSERT INTO users (username, salt, password_sha256, deleted) VALUES (?, ?, ?, ?)"
-	UPDATE_USERNAME_SQL = "UPDATE users SET username=? WHERE username=?"
 	UPDATE_PASSWORD_SQL = "UPDATE users SET username=? WHERE username=?"
 	DELETE_USER_SQL = "UPDATE users SET deleted=true WHERE username=?"
 	GET_USER_SQL = "SELECT salt, password_sha256 FROM users WHERE username=? AND deleted=false"
@@ -48,6 +47,7 @@ func NewUserManager(storage *StorageManager) (*UserManager, error) {
 }
 
 func (manager *UserManager) PersistUser(user *User) (bool, error) {
+
 	return true, nil
 }
 
@@ -68,26 +68,50 @@ func (manager *UserManager) GetUser(username string) (*User, error) {
 	return user, nil
 }
 
-func (manager *UserManager) CreateUser(username string, password string) (*User, error) {
+func hashPassword(password string) (string, string, error) {
 	// Generate a salt
 	salt := make([]byte, SALT_BYTES)
 	_, err := io.ReadFull(rand.Reader, salt)
 	if err != nil {
-		fmt.Println(err)
-		return nil, errors.New("There was an error registering the user.")
+		return "", "", err
 	}
 
 	// Hash the password
 	password_hash := sha256.Sum256([]byte(password))
 	salted_hash := sha256.Sum256(append(salt, password_hash[:]...))
 
-	user := User{
-		Username:        username,
-		salt:            hex.EncodeToString(salt),
-		password_sha256: hex.EncodeToString(salted_hash[:]),
+	return hex.EncodeToString(salt), hex.EncodeToString(salted_hash[:]), nil
+}
+
+func (manager *UserManager) CreateUser(username string, password string) (*User, error) {
+	// Hash the password, generating a new salt as well
+	salt, password, err := hashPassword(password)
+	if err != nil {
+		return &User{}, err
 	}
 
-	manager.PersistUser(&user)
+	user := User{
+		Username:        username,
+		salt:            salt,
+		password_sha256: password,
+	}
+
+	result, err := manager.storage.db.Exec(CREATE_USER_SQL, user.Username, user.salt, user.password_sha256, false)
+	if err != nil {
+		return &User{}, err
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return &User{}, err
+	}
+
+	if affected != 1 {
+		return &User{}, errors.New("We did not insert the user? We affected " + string(affected) + " rows")
+	}
+
+	// Add them into the cache as well
+	manager.user_cache[user.Username] = &user
 
 	return &user, nil
 }
@@ -144,4 +168,58 @@ func (manager *UserManager) TokenIsValid(token string) (bool, error) {
 
 	// User was not found or their Token doesn't exist
 	return false, nil
+}
+
+func (manager *UserManager) UpdatePassword(username string, password string) (*User, error) {
+	// Hash the password, generating a new salt as well
+	salt, password, err := hashPassword(password)
+	if err != nil {
+		return &User{}, err
+	}
+
+	user := User{
+		Username:        username,
+		salt:            salt,
+		password_sha256: password,
+	}
+
+	result, err := manager.storage.db.Exec(UPDATE_PASSWORD_SQL, user.Username, user.salt, user.password_sha256, false)
+	if err != nil {
+		return &User{}, err
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return &User{}, err
+	}
+
+	if affected != 1 {
+		return &User{}, errors.New("We did not update the user? We affected " + string(affected) + " rows")
+	}
+
+	// Add them into the cache as well
+	manager.user_cache[user.Username] = &user
+
+	return &user, nil
+}
+
+func (manager *UserManager) DeleteUser(username string) error {
+	result, err := manager.storage.db.Exec(DELETE_USER_SQL, username)
+	if err != nil {
+		return err
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if affected != 1 {
+		return errors.New("We did not delete the user? We affected " + string(affected) + " rows")
+	}
+
+	// Remove them from the cache
+	delete(manager.user_cache, username)
+
+	return nil
 }
