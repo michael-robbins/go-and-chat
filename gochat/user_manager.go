@@ -19,11 +19,11 @@ const (
 	UPDATE_USERNAME_SQL = "UPDATE users SET username=? WHERE username=?"
 	UPDATE_PASSWORD_SQL = "UPDATE users SET username=? WHERE username=?"
 	DELETE_USER_SQL = "UPDATE users SET deleted=true WHERE username=?"
-	GET_USER_SQL = "SELECT * FROM users WHERE username=?"
+	GET_USER_SQL = "SELECT salt, password_sha256 FROM users WHERE username=? AND deleted=false"
 	USER_SCHEMA = `
-	CREATE TABLE users (
+	CREATE TABLE IF NOT EXISTS users (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		username TEXT,
+		username TEXT UNIQUE,
 		salt TEXT,
 		password_sha256	TEXT,
 		deleted BOOLEAN
@@ -35,11 +35,17 @@ type UserManager struct {
 	user_cache	map[string]*User
 }
 
-func NewUserManager(storage *StorageManager) *UserManager {
-	return &UserManager{storage: storage}
-}
+func NewUserManager(storage *StorageManager) (*UserManager, error) {
+	// Create the users table if it doesn't already exist
+	result, err := storage.db.Exec(USER_SCHEMA)
+	if err != nil {
+		return &UserManager{}, err
+	}
+	fmt.Println("Attempted to create users table!")
+	fmt.Println(result)
 
-func (manager *UserManager) InitialiseUserManager()     {}
+	return &UserManager{storage: storage}, nil
+}
 
 func (manager *UserManager) PersistUser(user *User) (bool, error) {
 	return true, nil
@@ -52,13 +58,10 @@ func (manager *UserManager) GetUser(username string) (*User, error) {
 	}
 
 	// Otherwise extract the user from storage, putting them into the cache as well
-	var err error
 	var user *User
 
-	// TODO: Get user from storage manager
-
-	if err != nil {
-		return nil, err
+	if err := manager.storage.db.Get(user, GET_USER_SQL, username); err != nil {
+		return &User{}, err
 	}
 
 	manager.user_cache[user.Username] = user

@@ -12,11 +12,11 @@ const (
 )
 
 type User struct {
-	Username        string
+	Username        string		`db:"username"`
 	token           string
 	token_expiry    time.Time
-	salt            string
-	password_sha256 string
+	salt            string		`db:"salt"`
+	password_sha256 string		`db:"password_sha256"`
 	conn            net.Conn
 }
 

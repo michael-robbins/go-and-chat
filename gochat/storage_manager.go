@@ -51,7 +51,6 @@ func NewStorageManager(config DatabaseConfig) (*StorageManager, error) {
 	return &StorageManager{config: config, db: db}, nil
 }
 
-func (manager StorageManager) CloseStorage() error {
+func (manager *StorageManager) CloseStorage() error {
 	return manager.db.Close()
 }
-

@@ -41,6 +41,7 @@ func main() {
 	}
 
 	if *logFile != "" {
+		// Attempt to either open or create the log file
 		f, err := os.OpenFile(*logFile, os.O_WRONLY | os.O_CREATE, 0755)
 		if err != nil {
 			printDefaults(usageTitle, "Unable to log to the request file, unable to open/create it.")
@@ -50,14 +51,12 @@ func main() {
 		log.SetOutput(f)
 	}
 
-	logger := log.WithFields(log.Fields{
-		"type": "GoChatClient",
-	})
+	logger := log.WithFields(log.Fields{"type": "GoChatClient"})
 
 	// Register all the Message struct subtypes for encoding/decoding
 	gochat.RegisterStructs()
 
-	// Create the new client instance
+	// Create the new chat client instance
 	client, _ := gochat.NewChatClient(logger)
 
 	logger.Debug("Attempting to connect to: " + *connection_string)
@@ -108,7 +107,7 @@ EventLoop:
 			break EventLoop
 		}
 
-		// Sleep for a second then check again for any server/client messages
+		// Sleep for a second then check again for any server/client messages or exit decisions
 		time.Sleep(time.Second)
 	}
 

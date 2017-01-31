@@ -2,6 +2,7 @@ package gochat
 
 import (
 	"errors"
+	"fmt"
 )
 
 const (
@@ -10,9 +11,9 @@ const (
 	DELETE_ROOM_SQL = "DELETE FROM rooms WHERE name=?"
 	GET_ROOM_SQL = "SELECT * FROM rooms WHERE name=?"
 	ROOM_SCHEMA = `
-	CREATE TABLE rooms (
+	CREATE TABLE IF NOT EXISTS rooms (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		name TEXT,
+		name TEXT UNIQUE,
 		capacity INTEGER,
 		closed BOOLEAN
 	)`
@@ -22,7 +23,7 @@ const (
 	GET_ROOM_USERS_SQL = "SELECT user_id FROM room_users WHERE room_id=?"
 	GET_USER_ROOMS_SQL = "SELECT room_id FROM room_users WHERE user_id=?"
 	ROOM_USERS_SCHEMA = `
-	CREATE TABLE room_users (
+	CREATE TABLE IF NOT EXISTS room_users (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		room_id INTEGER,
 		user_id INTEGER
@@ -35,11 +36,25 @@ type RoomManager struct {
 	room_cache	map[string]*Room
 }
 
-func NewRoomManager(storage *StorageManager) *RoomManager {
-	return &RoomManager{storage: storage}
-}
+func NewRoomManager(storage *StorageManager) (*RoomManager, error) {
+	// Create the rooms table if it doesn't already exist
+	result, err := storage.db.Exec(ROOM_SCHEMA)
+	if err != nil {
+		return &RoomManager{}, err
+	}
+	fmt.Println("Attempted to create rooms table!")
+	fmt.Println(result)
 
-func (manager *RoomManager) InitialiseRoomManager() {}
+	// Create the room_users table if it doesn't already exist
+	result, err = storage.db.Exec(ROOM_USERS_SCHEMA)
+	if err != nil {
+		return &RoomManager{}, err
+	}
+	fmt.Println("Attempted to create room_users table!")
+	fmt.Println(result)
+
+	return &RoomManager{storage: storage}, nil
+}
 
 func (manager *RoomManager) PersistRoom(room *Room) (bool, error) {
 	return true, nil

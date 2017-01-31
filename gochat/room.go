@@ -5,9 +5,9 @@ import (
 )
 
 type Room struct {
-	Name       string
+	Name       string	`db:"name"`
 	users      []*User
-	superUsers []*User	`db:"closed"`
+	superUsers []*User
 	Capacity   int		`db:"capacity"`
 	Closed     bool		`db:"closed"`
 }
