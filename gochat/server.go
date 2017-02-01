@@ -36,9 +36,19 @@ func NewChatServer(logger *log.Entry, config ServerConfig) (*ChatServer, error) 
 		return &ChatServer{}, err
 	}
 
+	userManager, err := NewUserManager(storageManager)
+	if err != nil {
+		return &ChatServer{}, err
+	}
+
+	roomManager, err := NewRoomManager(storageManager)
+	if err != nil {
+		return &ChatServer{}, err
+	}
+
 	chat_server := ChatServer{
-		user_manager: NewUserManager(storageManager),
-		room_manager: NewRoomManager(storageManager),
+		user_manager: userManager,
+		room_manager: roomManager,
 		logger: logger,
 	}
 
@@ -148,8 +158,14 @@ func (server *ChatServer) HandleMessage(message Message) (Message, error) {
 		}
 	case CLOSE_ROOM:
 		contents := message.Contents.(CloseRoomMessage)
-		if _, err := server.room_manager.CloseRoom(contents.Room); err != nil {
+		room, err := server.room_manager.CloseRoom(contents.Room)
+		if err != nil {
 			return Message{}, err
+		}
+
+		for _, user := range room.users {
+			SendRemoteCommand(user.conn, BuildMessage(RECV_MSG, RecvTextMessage{Message: TextMessage{Username: "SERVER", Room: room.Name, Text: "This room has been closed."}}))
+			SendRemoteCommand(user.conn, BuildMessage(LEAVE_ROOM, LeaveRoomMessage{Room: room.Name}))
 		}
 	}
 

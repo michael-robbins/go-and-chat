@@ -7,7 +7,6 @@ import (
 
 const (
 	CREATE_ROOM_SQL = "INSERT INTO rooms (name, capacity, closed) VALUES (?, ?, ?)"
-	UPDATE_ROOM_SQL = "UPDATE rooms SET name=? WHERE name=?"
 	DELETE_ROOM_SQL = "DELETE FROM rooms WHERE name=?"
 	GET_ROOM_SQL = "SELECT * FROM rooms WHERE name=?"
 	ROOM_SCHEMA = `
@@ -20,6 +19,8 @@ const (
 
 	CREATE_ROOM_USER_SQL = "INSERT INTO room_users (room_id, user_id) VALUES (?, ?)"
 	DELETE_ROOM_USER_SQL = "DELETE FROM room_users WHERE room_id=? AND user_id=?"
+	DELETE_ROOMS_USER_SQL = "DELETE FROM room_users WHERE user_id=?"
+	DELETE_ROOM_USERS_SQL = "DELETE FROM room_users WHERE room_id=?"
 	GET_ROOM_USERS_SQL = "SELECT user_id FROM room_users WHERE room_id=?"
 	GET_USER_ROOMS_SQL = "SELECT room_id FROM room_users WHERE user_id=?"
 	ROOM_USERS_SCHEMA = `
@@ -56,10 +57,6 @@ func NewRoomManager(storage *StorageManager) (*RoomManager, error) {
 	return &RoomManager{storage: storage}, nil
 }
 
-func (manager *RoomManager) PersistRoom(room *Room) (bool, error) {
-	return true, nil
-}
-
 func (manager *RoomManager) GetRoom(name string) (*Room, error) {
 	// If the Room has already been extracted from storage, just return them
 	if room, ok := manager.room_cache[name]; ok {
@@ -71,13 +68,11 @@ func (manager *RoomManager) GetRoom(name string) (*Room, error) {
 	}
 
 	// Otherwise extract the Room from storage, putting it into the cache as well
-	var err error
 	var room *Room
 
 	// TODO: Get room from storage manager
-
-	if err != nil {
-		return nil, err
+	if err := manager.storage.db.Get(room, GET_ROOM_SQL, name); err != nil {
+		return &Room{}, err
 	}
 
 	// Add the Room to the cache regardless of if it's closed or not
@@ -96,20 +91,44 @@ func (manager *RoomManager) CreateRoom(name string, capacity int) (*Room, error)
 		Capacity: capacity,
 	}
 
-	// Ensure the Room is stored and not just in memory
-	manager.PersistRoom(&room)
+	result, err := manager.storage.db.Exec(CREATE_ROOM_SQL, room.Name, room.Capacity, false)
+	if err != nil {
+		return &Room{}, err
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return &Room{}, err
+	}
+
+	if affected != 1 {
+		return &Room{}, errors.New("We did not create the Room? We affected " + string(affected) + " rows")
+	}
+
+	// Add them into the cache as well
+	manager.room_cache[room.Name] = &room
 
 	return &room, nil
 }
 
-func (manager *RoomManager) CloseRoom(name string) (bool, error) {
-	if room, ok := manager.room_cache[name]; ok {
-		// Mark the Room as closed
-		room.Closed = true
-		manager.PersistRoom(room)
-
-		return true, nil
+func (manager *RoomManager) CloseRoom(name string) (*Room, error) {
+	room, err := manager.GetRoom(name)
+	if err != nil {
+		return &Room{}, err
 	}
 
-	return false, errors.New("Room doesn't exist.")
+	// Mark the room as deleted
+	err = manager.storage.Exec(
+		DELETE_ROOM_SQL,
+		func(affected int64) bool {return affected == 1},
+		[]interface{}{name})
+
+	if err != nil {
+		return &Room{}, err
+	}
+
+	// Remove the room from the cache
+	delete(manager.room_cache, name)
+
+	return room, nil
 }

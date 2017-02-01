@@ -57,7 +57,7 @@ func (client *ChatClient) Authenticate(username string, password string) error {
 		BuildMessage(AUTHENTICATE, AuthenticateMessage{Username: username, PasswordHash: password_hash_hex}))
 }
 
-func (client *ChatClient) ListenToUser(message_channel chan<- Message, exit chan<- int) error {
+func (client *ChatClient) ListenToUser(message_channel chan<- Message, exit chan<- int, server_message <-chan Message) error {
 	client_commands := []COMMAND{LIST_ROOMS, JOIN_ROOM, CREATE_ROOM, CLOSE_ROOM}
 
 UserMenuLoop:
@@ -74,7 +74,7 @@ UserMenuLoop:
 		}
 
 		// We offset by one as the user is only given the choices of 1 -> len(client_commands)
-		command := client_commands[number - 1]
+		command := client_commands[number-1]
 
 		// Ensure that any commands that require authentication have a Token
 		switch command {
@@ -223,7 +223,7 @@ func (client *ChatClient) ListenToServer(notify chan<- Message) error {
 	return nil
 }
 
-func (client *ChatClient) HandleServerMessage(message Message) error {
+func (client *ChatClient) HandleServerMessage(message Message, cli_notification chan<- Message) error {
 	// Interpret Message
 	switch message.Command {
 	case TOKEN:
@@ -235,6 +235,8 @@ func (client *ChatClient) HandleServerMessage(message Message) error {
 	case LIST_ROOMS:
 		contents := message.Contents.(ListRoomsMessage)
 		client.DisplayRoomListingMessage(contents)
+	case LEAVE_ROOM:
+		cli_notification<- message
 	default:
 		// Unknown Message command
 		return errors.New("Unable to determine incoming Message type from server.")

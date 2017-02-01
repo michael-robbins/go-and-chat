@@ -54,3 +54,21 @@ func NewStorageManager(config DatabaseConfig) (*StorageManager, error) {
 func (manager *StorageManager) CloseStorage() error {
 	return manager.db.Close()
 }
+
+// Convenience wrapper around the Exec call, it returns any errors Exec encounters
+// It also has an affectedCheck anon function that ensure the correct number of rows is affected
+func (manager *StorageManager) Exec(sql string, affectedCheck func(int64) bool, args ...interface{}) error {
+	result, err := manager.db.Exec(DELETE_USER_SQL, args...)
+	if err != nil {
+		return err
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if !affectedCheck(affected) {
+		return errors.New("We did not delete the user? We affected " + string(affected) + " rows")
+	}
+}

@@ -15,23 +15,24 @@ const (
 )
 
 const (
-	CREATE_USER_SQL = "INSERT INTO users (username, salt, password_sha256, deleted) VALUES (?, ?, ?, ?)"
-	UPDATE_PASSWORD_SQL = "UPDATE users SET username=? WHERE username=?"
-	DELETE_USER_SQL = "UPDATE users SET deleted=true WHERE username=?"
-	GET_USER_SQL = "SELECT salt, password_sha256 FROM users WHERE username=? AND deleted=false"
+	CREATE_USER_SQL = "INSERT INTO users (username, salt, password_sha256, Deleted) VALUES (?, ?, ?, ?)"
+	UPDATE_PASSWORD_SQL = "UPDATE users SET password_sha256=? WHERE username=?"
+	DELETE_USER_SQL = "UPDATE users SET Deleted=true WHERE username=?"
+	GET_USER_SQL = "SELECT * FROM users WHERE username=? AND delted=false"
 	USER_SCHEMA = `
 	CREATE TABLE IF NOT EXISTS users (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		username TEXT UNIQUE,
 		salt TEXT,
 		password_sha256	TEXT,
-		deleted BOOLEAN
+		Deleted BOOLEAN
 	)`
 )
 
 type UserManager struct {
 	storage		*StorageManager
 	user_cache	map[string]*User
+	token_cache map[string]*User
 }
 
 func NewUserManager(storage *StorageManager) (*UserManager, error) {
@@ -40,15 +41,11 @@ func NewUserManager(storage *StorageManager) (*UserManager, error) {
 	if err != nil {
 		return &UserManager{}, err
 	}
+
 	fmt.Println("Attempted to create users table!")
 	fmt.Println(result)
 
 	return &UserManager{storage: storage}, nil
-}
-
-func (manager *UserManager) PersistUser(user *User) (bool, error) {
-
-	return true, nil
 }
 
 func (manager *UserManager) GetUser(username string) (*User, error) {
@@ -65,6 +62,9 @@ func (manager *UserManager) GetUser(username string) (*User, error) {
 	}
 
 	manager.user_cache[user.Username] = user
+
+	// Generate a token for the user
+	manager.token_cache[user.GetToken()] = user
 	return user, nil
 }
 
@@ -90,54 +90,42 @@ func (manager *UserManager) CreateUser(username string, password string) (*User,
 		return &User{}, err
 	}
 
-	user := User{
-		Username:        username,
-		salt:            salt,
-		password_sha256: password,
-	}
+	// Create the user
+	err = manager.storage.Exec(
+		CREATE_USER_SQL,
+		func(affected int64) bool {return affected == 1},
+		[]interface{}{username, salt, password, false},
+	)
 
-	result, err := manager.storage.db.Exec(CREATE_USER_SQL, user.Username, user.salt, user.password_sha256, false)
 	if err != nil {
 		return &User{}, err
 	}
 
-	affected, err := result.RowsAffected()
-	if err != nil {
-		return &User{}, err
-	}
-
-	if affected != 1 {
-		return &User{}, errors.New("We did not insert the user? We affected " + string(affected) + " rows")
-	}
-
-	// Add them into the cache as well
-	manager.user_cache[user.Username] = &user
-
-	return &user, nil
+	return manager.GetUser(username)
 }
 
 func (manager *UserManager) AuthenticateUser(username string, password_sha256 string) (*User, error) {
 	user, err := manager.GetUser(username)
 	if err != nil {
-		return nil, err
+		return &User{}, err
 	}
 
 	client_hash, err := hex.DecodeString(password_sha256)
 	if err != nil {
 		fmt.Println(err)
-		return nil, errors.New("Error decoding users password hash.")
+		return &User{}, errors.New("Error decoding users password hash.")
 	}
 
 	server_salt, err := hex.DecodeString(user.salt)
 	if err != nil {
 		fmt.Println(err)
-		return nil, errors.New("Error decoding users server salt.")
+		return &User{}, errors.New("Error decoding users server salt.")
 	}
 
 	server_hash, err := hex.DecodeString(user.password_sha256)
 	if err != nil {
 		fmt.Println(err)
-		return nil, errors.New("Error decoding users server password hash.")
+		return &User{}, errors.New("Error decoding users server password hash.")
 	}
 
 	client_side_hash := sha256.Sum256(append(server_salt, client_hash...))
@@ -146,15 +134,12 @@ func (manager *UserManager) AuthenticateUser(username string, password_sha256 st
 	if client_side_hash == server_side_hash {
 		return user, nil
 	} else {
-		return nil, errors.New("Invalid password")
+		return &User{}, errors.New("Invalid password")
 	}
-
-	return user, nil
 }
 
 func (manager *UserManager) TokenIsValid(token string) (bool, error) {
 	// We can safely assert here that if the Token does not belong to a user in the cache, then the Token is invalid
-
 	for _, user := range manager.user_cache {
 		if user.token == token {
 			if user.token_expiry.After(time.Now().Add(time.Hour * -24)) {
@@ -170,55 +155,67 @@ func (manager *UserManager) TokenIsValid(token string) (bool, error) {
 	return false, nil
 }
 
-func (manager *UserManager) UpdatePassword(username string, password string) (*User, error) {
+func (manager *UserManager) UpdatePassword(username string, password string) error {
 	// Hash the password, generating a new salt as well
 	salt, password, err := hashPassword(password)
 	if err != nil {
-		return &User{}, err
+		return err
 	}
 
-	user := User{
-		Username:        username,
-		salt:            salt,
-		password_sha256: password,
-	}
+	// Update the password of the user
+	err = manager.storage.Exec(
+		UPDATE_PASSWORD_SQL,
+		func(affected int64) bool {return affected == 1},
+		[]interface{}{username, salt, password, false},
+	)
 
-	result, err := manager.storage.db.Exec(UPDATE_PASSWORD_SQL, user.Username, user.salt, user.password_sha256, false)
 	if err != nil {
-		return &User{}, err
+		return err
 	}
 
-	affected, err := result.RowsAffected()
+	// Delete them from the cache
+	delete(manager.user_cache, username)
+
+	// Fetch the updated user
+	user, err := manager.GetUser(username)
 	if err != nil {
-		return &User{}, err
+		return err
 	}
 
-	if affected != 1 {
-		return &User{}, errors.New("We did not update the user? We affected " + string(affected) + " rows")
-	}
+	// Add them back into the cache
+	manager.user_cache[user.Username] = user
 
-	// Add them into the cache as well
-	manager.user_cache[user.Username] = &user
-
-	return &user, nil
+	return nil
 }
 
 func (manager *UserManager) DeleteUser(username string) error {
-	result, err := manager.storage.db.Exec(DELETE_USER_SQL, username)
+	user, err := manager.GetUser(username)
 	if err != nil {
 		return err
 	}
 
-	affected, err := result.RowsAffected()
+	// Mark the user as deleted
+	err = manager.storage.Exec(
+		DELETE_USER_SQL,
+		func(affected int64) bool {return affected == 1},
+		[]interface{}{username})
+
 	if err != nil {
 		return err
 	}
 
-	if affected != 1 {
-		return errors.New("We did not delete the user? We affected " + string(affected) + " rows")
+	// Remove the user out of all their rooms
+	err = manager.storage.Exec(
+		DELETE_ROOMS_USER_SQL,
+		func(affected int64) bool {return affected > 0},
+		[]interface{}{user.Id},
+	)
+
+	if err != nil {
+		return err
 	}
 
-	// Remove them from the cache
+	// Remove the user from the cache
 	delete(manager.user_cache, username)
 
 	return nil
