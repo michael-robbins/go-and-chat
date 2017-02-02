@@ -129,7 +129,7 @@ func (server *ChatServer) HandleMessage(message Message) (Message, error) {
 
 		var message TextMessage
 		if err != nil {
-			message = TextMessage{Username: "SERVER", Room: "SERVER", Text: "Registration Failed: " + string(err)}
+			message = TextMessage{Username: "SERVER", Room: "SERVER", Text: "Registration Failed: " + err.Error()}
 		} else {
 			message = TextMessage{Username: "SERVER", Room: "SERVER", Text: "Registration Successfull"}
 		}
@@ -141,7 +141,7 @@ func (server *ChatServer) HandleMessage(message Message) (Message, error) {
 
 		var message Message
 		if err != nil {
-			textMessage := TextMessage{Username: "SERVER", Room: "SERVER", Text: "Authentication Failed: " + string(err)}
+			textMessage := TextMessage{Username: "SERVER", Room: "SERVER", Text: "Authentication Failed: " + err.Error()}
 			message = BuildMessage(RECV_MSG, RecvTextMessage{Message: textMessage})
 		} else {
 			message = BuildMessage(TOKEN, TokenMessage{Username: user.Username, Token: user.GetToken()})
