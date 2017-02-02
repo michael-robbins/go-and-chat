@@ -37,9 +37,7 @@ func getClientCommandsOption(client_commands []COMMAND) int {
 			return -1
 		}
 
-		var err error
-		number, err = strconv.Atoi(text)
-
+		number, err := strconv.Atoi(text)
 		if err != nil || number < 1 || number > len(client_commands) {
 			// Invalid choice, force the for loop to iterate
 			fmt.Print("Invalid choice (Valid options are: 1 -> ", len(client_commands), ").\n")
@@ -112,4 +110,33 @@ func getTextMessage() string {
 	}
 
 	return textMessage
+}
+
+func GetStartupChoice(choices []string) int {
+	startupChoice := -1
+
+	for {
+		fmt.Println("Please select a choice:")
+		for i, choice := range choices {
+			fmt.Print(i+1, " ", "=", " ", choice, "\n")
+		}
+
+		text := getUserInput("Choice (number): ")
+		if text == "quit" || text == "q" {
+			return -1
+		}
+
+		startupChoice, err := strconv.Atoi(text)
+		if err != nil || startupChoice < 1 || startupChoice > len(choices) {
+			// Invalid choice, force the for loop to iterate
+			fmt.Print("Invalid choice (Valid options are: 1 -> ", len(choices), ").\n")
+			continue
+		}
+
+		// Passed our validation, break the loop
+		break
+	}
+
+	return startupChoice
+
 }

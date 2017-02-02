@@ -7,8 +7,8 @@ import (
 	"os"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/michael-robbins/go-and-chat/gochat"
+	log "github.com/Sirupsen/logrus"
 )
 
 func printDefaults(usageTitle string, error string) {
@@ -67,22 +67,50 @@ func main() {
 	}
 	logger.Debug("Successfully connected to: " + *connection_string)
 
-	// Attempt to authenticate the user
-	reader := bufio.NewReader(os.Stdin)
-
-	fmt.Print("Enter Username: ")
-	username, _ := reader.ReadString('\n')
-
-	fmt.Print("Enter Password: ")
-	password, _ := reader.ReadString('\n')
-
-	if err := client.Authenticate(username, password); err != nil {
-		logger.Error(err)
-	}
-
 	// Spin off a thread to listen for server events
 	server_messages := make(chan gochat.Message, 1)
 	go client.ListenToServer(server_messages)
+
+	// Ask the user what they want to do
+	choices := []string{"Register", "Log In"}
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		choice := gochat.GetStartupChoice(choices)
+		if choice == -1 {
+			// The user has indicated to quit the program
+			return
+		}
+
+		fmt.Print("Enter Username: ")
+		username, _ := reader.ReadString('\n')
+
+		fmt.Print("Enter Password: ")
+		password, _ := reader.ReadString('\n')
+
+		if choice == 1 {
+			fmt.Print("Enter Password (again): ")
+			password_again, _ := reader.ReadString('\n')
+
+			if password != password_again {
+				fmt.Println("Passwords do not match!")
+				continue
+			}
+
+			if err := client.Register(username, password); err != nil {
+				logger.Error(err)
+			}
+
+			fmt.Println("Registration request successfull, please raise for response before logging in!")
+		} else if choice == 2 {
+			// Attempt to authenticate the user
+			if err := client.Authenticate(username, password); err != nil {
+				logger.Error(err)
+				return
+			}
+
+			break
+		}
+	}
 
 	// Spin off a thread to listen for client events
 	client_messages := make(chan gochat.Message, 1)

@@ -43,6 +43,11 @@ func (client *ChatClient) Connect(connection_string string) (net.Conn, error) {
 	return client.conn, nil
 }
 
+func (client *ChatClient) Register(username string, password string) error {
+	return SendRemoteCommand(client.conn,
+		BuildMessage())
+}
+
 func (client *ChatClient) Authenticate(username string, password string) error {
 	// Save the Username
 	client.username = username

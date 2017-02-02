@@ -123,19 +123,31 @@ func (server *ChatServer) HandleMessage(message Message) (Message, error) {
 
 	// Interpret Message
 	switch message.Command {
-	case AUTHENTICATE:
-		server.logger.Debug("We have a valid auth attempt!")
-		contents := message.Contents.(AuthenticateMessage)
+	case REGISTER:
+		contents := message.Contents.(RegisterMessage)
+		_, err := server.user_manager.CreateUser(contents.Username, contents.PasswordHash)
 
-		server.logger.Debug("Parsed the contents of the Authentication message")
-		user, err := server.user_manager.AuthenticateUser(contents.Username, contents.PasswordHash)
+		var message TextMessage
 		if err != nil {
-			return Message{}, err
+			message = TextMessage{Username: "SERVER", Room: "SERVER", Text: "Registration Failed: " + string(err)}
+		} else {
+			message = TextMessage{Username: "SERVER", Room: "SERVER", Text: "Registration Successfull"}
 		}
 
-		// Respond with the authentication Token
-		server.logger.Debug("Successfully authenticated user!")
-		return BuildMessage(TOKEN, TokenMessage{Username: user.Username, Token: user.GetToken()}), nil
+		return BuildMessage(RECV_MSG, RecvTextMessage{Message: message}), nil
+	case AUTHENTICATE:
+		contents := message.Contents.(AuthenticateMessage)
+		user, err := server.user_manager.AuthenticateUser(contents.Username, contents.PasswordHash)
+
+		var message Message
+		if err != nil {
+			textMessage := TextMessage{Username: "SERVER", Room: "SERVER", Text: "Authentication Failed: " + string(err)}
+			message = BuildMessage(RECV_MSG, RecvTextMessage{Message: textMessage})
+		} else {
+			message = BuildMessage(TOKEN, TokenMessage{Username: user.Username, Token: user.GetToken()})
+		}
+
+		return message, nil
 	case SEND_MSG:
 		contents := message.Contents.(SendTextMessage)
 		for _, user := range room.users {

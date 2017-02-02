@@ -8,6 +8,7 @@ import (
 type COMMAND string
 
 const (
+	REGISTER	 = COMMAND("Register")
 	AUTHENTICATE = COMMAND("Authenticate")
 	TOKEN        = COMMAND("Token")
 	LIST_ROOMS   = COMMAND("List Rooms")
@@ -22,6 +23,11 @@ const (
 type Message struct {
 	Command  COMMAND
 	Contents interface{}
+}
+
+type RegisterMessage struct {
+	Username	 string
+	PasswordHash string
 }
 
 type AuthenticateMessage struct {
@@ -79,6 +85,7 @@ type CloseRoomMessage struct {
 
 func RegisterStructs() {
 	// Register all the various subtypes of messages so gob can encode/decode them correctly
+	gob.Register(RegisterMessage{})
 	gob.Register(AuthenticateMessage{})
 	gob.Register(TokenMessage{})
 	gob.Register(TextMessage{})
