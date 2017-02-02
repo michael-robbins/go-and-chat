@@ -54,27 +54,27 @@ func getClientCommandsOption(client_commands []COMMAND) int {
 }
 
 func getRoomName() string {
-	var room_name string
+	var roomName string
 
 	for {
-		if room_name != "" {
+		if roomName != "" {
 			break
 		}
 
-		room_name := getUserInput("Room to join: ")
-		if room_name == "quit" || room_name == "q" {
+		roomName = getUserInput("Room to join: ")
+		if roomName == "quit" || roomName == "q" {
 			return ""
 		}
 	}
 
-	return room_name
+	return roomName
 }
 
 func getRoomCapacity() int {
-	room_capacity := -1
+	roomCapacity := -1
 
 	for {
-		if room_capacity != -1 {
+		if roomCapacity != -1 {
 			break
 		}
 
@@ -91,8 +91,25 @@ func getRoomCapacity() int {
 			fmt.Println("Invalid choice (Only '1' -> 'MAX_INT32'.")
 		}
 
-		room_capacity = number
+		roomCapacity = number
 	}
 
-	return room_capacity
+	return roomCapacity
+}
+
+func getTextMessage() string {
+	var textMessage string
+
+	for {
+		if textMessage != "" {
+			break
+		}
+
+		textMessage = getUserInput("Message to send: ")
+		if textMessage == "quit" || textMessage == "q" {
+			return ""
+		}
+	}
+
+	return textMessage
 }

@@ -87,8 +87,7 @@ func main() {
 	// Spin off a thread to listen for client events
 	client_messages := make(chan gochat.Message, 1)
 	exit_decision := make(chan int, 1)
-	server_initiated_action := make(chan gochat.Message, 1)
-	go client.ListenToUser(client_messages, exit_decision, server_initiated_action)
+	go client.ListenToUser(client_messages, exit_decision)
 
 	// Listen to events on the server & client channels
 EventLoop:

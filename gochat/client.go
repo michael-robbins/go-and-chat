@@ -57,7 +57,7 @@ func (client *ChatClient) Authenticate(username string, password string) error {
 		BuildMessage(AUTHENTICATE, AuthenticateMessage{Username: username, PasswordHash: password_hash_hex}))
 }
 
-func (client *ChatClient) ListenToUser(message_channel chan<- Message, exit chan<- int, server_message <-chan Message) error {
+func (client *ChatClient) ListenToUser(message_channel chan<- Message, exit chan<- int) error {
 	client_commands := []COMMAND{LIST_ROOMS, JOIN_ROOM, CREATE_ROOM, CLOSE_ROOM}
 
 UserMenuLoop:
@@ -86,24 +86,24 @@ UserMenuLoop:
 		}
 
 		// Populate the room_name if required
-		var room_name string
+		var roomName string
 
 		switch command {
 		case JOIN_ROOM, LEAVE_ROOM, CREATE_ROOM, CLOSE_ROOM:
-			room_name := getRoomName()
-			if room_name == "" {
+			roomName := getRoomName()
+			if roomName == "" {
 				// The user has indicated to return to the main menu
 				continue UserMenuLoop
 			}
 		}
 
 		// Populate the room_capacity if required
-		var room_capacity int
+		var roomCapacity int
 
 		switch command {
 		case CREATE_ROOM:
-			room_capacity = getRoomCapacity()
-			if room_capacity == -1 {
+			roomCapacity = getRoomCapacity()
+			if roomCapacity == -1 {
 				// The user has indicated to return to the main menu
 				continue UserMenuLoop
 			}
@@ -117,13 +117,12 @@ UserMenuLoop:
 		case LIST_ROOMS:
 			message, err = client.BuildListRoomsMessage()
 		case JOIN_ROOM:
-			message, err = client.BuildJoinRoomMessage(room_name)
-		case LEAVE_ROOM:
-			message, err = client.BuildLeaveRoomMessage(room_name)
+			message, err = client.BuildJoinRoomMessage(roomName)
+
 		case CREATE_ROOM:
-			message, err = client.BuildCreateRoomMessage(room_name, room_capacity)
+			message, err = client.BuildCreateRoomMessage(roomName, roomCapacity)
 		case CLOSE_ROOM:
-			message, err = client.BuildCloseRoomMessage(room_name)
+			message, err = client.BuildCloseRoomMessage(roomName)
 		}
 
 		// Send the Message into the queue or print out the error and continue the main loop
@@ -131,6 +130,36 @@ UserMenuLoop:
 			fmt.Println(err)
 		} else {
 			message_channel <- message
+		}
+
+		if command == JOIN_ROOM {
+			for {
+				textMessage := getTextMessage()
+
+				if textMessage == "" {
+					// User has indicated to leave the room
+					message, err = client.BuildLeaveRoomMessage(roomName)
+					if err != nil {
+						fmt.Println(err)
+					} else {
+						// Send the leave room request
+						message_channel<- message
+					}
+
+					break
+				}
+
+				// User has indicated to leave the room
+				message, err = client.BuildSendMessageMessage(textMessage, roomName)
+				if err != nil {
+					fmt.Println(err)
+					break
+				} else {
+					message_channel<- message
+				}
+
+				// Continue the loop asking for another text message to send
+			}
 		}
 	}
 }
@@ -223,7 +252,7 @@ func (client *ChatClient) ListenToServer(notify chan<- Message) error {
 	return nil
 }
 
-func (client *ChatClient) HandleServerMessage(message Message, cli_notification chan<- Message) error {
+func (client *ChatClient) HandleServerMessage(message Message) error {
 	// Interpret Message
 	switch message.Command {
 	case TOKEN:
@@ -235,8 +264,6 @@ func (client *ChatClient) HandleServerMessage(message Message, cli_notification 
 	case LIST_ROOMS:
 		contents := message.Contents.(ListRoomsMessage)
 		client.DisplayRoomListingMessage(contents)
-	case LEAVE_ROOM:
-		cli_notification <- message
 	default:
 		// Unknown Message command
 		return errors.New("Unable to determine incoming Message type from server.")
