@@ -178,18 +178,8 @@ func (manager *UserManager) UpdatePassword(username string, password string) err
 }
 
 func (manager *UserManager) DeleteUser(username string) error {
-	user, err := manager.GetUser(username)
-	if err != nil {
-		return err
-	}
-
 	// Mark the user as deleted
-	if err = manager.storage.ExecOneRow(DELETE_USER_SQL, []interface{}{username}); err != nil {
-		return err
-	}
-
-	// Remove the user out of all their rooms
-	if err = manager.storage.ExecAtLeastOneRow(DELETE_ROOMS_USER_SQL, []interface{}{user.Id}); err != nil {
+	if err := manager.storage.ExecOneRow(DELETE_USER_SQL, []interface{}{username}); err != nil {
 		return err
 	}
 

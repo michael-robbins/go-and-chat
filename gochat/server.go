@@ -142,10 +142,8 @@ func (server *ChatServer) HandleMessage(message Message) (Message, error) {
 			SendRemoteCommand(user.conn, BuildMessage(RECV_MSG, RecvTextMessage{Message: contents.Message}))
 		}
 	case JOIN_ROOM:
-		contents := message.Contents.(JoinRoomMessage)
-		if err := room.AddUser(user, contents.IsSuperUser); err != nil {
-			return Message{}, err
-		}
+		//contents := message.Contents.(JoinRoomMessage)
+		room.AddUser(user)
 	case LEAVE_ROOM:
 		if err := room.RemoveUser(user); err != nil {
 			return Message{}, err
