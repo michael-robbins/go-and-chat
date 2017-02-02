@@ -21,7 +21,7 @@ const (
 	DELETE_ROOM_USER_SQL = "DELETE FROM room_users WHERE room_id=? AND user_id=?"
 	DELETE_ROOMS_USER_SQL = "DELETE FROM room_users WHERE user_id=?"
 	DELETE_ROOM_USERS_SQL = "DELETE FROM room_users WHERE room_id=?"
-	GET_ROOM_USERS_SQL = "SELECT user_id FROM room_users WHERE room_id=?"
+	GET_ROOM_USERS_SQL = "SELECT u.* FROM users AS u JOIN room_users AS ru ON u.user_id = ru.user_id WHERE ru.room_id=?"
 	GET_USER_ROOMS_SQL = "SELECT room_id FROM room_users WHERE user_id=?"
 	ROOM_USERS_SCHEMA = `
 	CREATE TABLE IF NOT EXISTS room_users (
@@ -70,9 +70,18 @@ func (manager *RoomManager) GetRoom(name string) (*Room, error) {
 	// Otherwise extract the Room from storage, putting it into the cache as well
 	var room *Room
 
-	// TODO: Get room from storage manager
 	if err := manager.storage.db.Get(room, GET_ROOM_SQL, name); err != nil {
 		return &Room{}, err
+	}
+
+	// Get the users that are in the room
+	users := []User{}
+	if err := manager.storage.db.Select(users, GET_ROOM_USERS_SQL, room.Id); err != nil {
+		return &Room{}, err
+	}
+
+	for _, user := range users {
+		manager.AddUserToRoom(room, &user)
 	}
 
 	// Add the Room to the cache regardless of if it's closed or not
@@ -86,29 +95,19 @@ func (manager *RoomManager) GetRoom(name string) (*Room, error) {
 }
 
 func (manager *RoomManager) CreateRoom(name string, capacity int) (*Room, error) {
-	room := Room{
-		Name:     name,
-		Capacity: capacity,
-	}
-
-	result, err := manager.storage.db.Exec(CREATE_ROOM_SQL, room.Name, room.Capacity, false)
-	if err != nil {
+	if err := manager.storage.ExecOneRow(CREATE_ROOM_SQL, []interface{}{name, capacity, false}); err != nil {
 		return &Room{}, err
 	}
 
-	affected, err := result.RowsAffected()
+	room, err := manager.GetRoom(name)
 	if err != nil {
 		return &Room{}, err
-	}
-
-	if affected != 1 {
-		return &Room{}, errors.New("We did not create the Room? We affected " + string(affected) + " rows")
 	}
 
 	// Add them into the cache as well
-	manager.room_cache[room.Name] = &room
+	manager.room_cache[room.Name] = room
 
-	return &room, nil
+	return room, nil
 }
 
 func (manager *RoomManager) CloseRoom(name string) (*Room, error) {
@@ -118,12 +117,7 @@ func (manager *RoomManager) CloseRoom(name string) (*Room, error) {
 	}
 
 	// Mark the room as deleted
-	err = manager.storage.Exec(
-		DELETE_ROOM_SQL,
-		func(affected int64) bool {return affected == 1},
-		[]interface{}{name})
-
-	if err != nil {
+	if err = manager.storage.ExecOneRow(DELETE_ROOM_SQL, []interface{}{name}); err != nil {
 		return &Room{}, err
 	}
 
@@ -131,4 +125,24 @@ func (manager *RoomManager) CloseRoom(name string) (*Room, error) {
 	delete(manager.room_cache, name)
 
 	return room, nil
+}
+
+func (manager *RoomManager) AddUserToRoom(room *Room, user *User) error {
+	room.AddUser(user)
+
+	if err := manager.storage.ExecOneRow(CREATE_ROOM_USER_SQL, []interface{}{room.Id, user.Id}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (manager *RoomManager) RemoveUserFromRoom(room *Room, user *User) error {
+	room.RemoveUser(user)
+
+	if err := manager.storage.ExecOneRow(DELETE_ROOM_USER_SQL, []interface{}{room.Id, user.Id}); err != nil {
+		return err
+	}
+
+	return nil
 }

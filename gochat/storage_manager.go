@@ -71,4 +71,14 @@ func (manager *StorageManager) Exec(sql string, affectedCheck func(int64) bool, 
 	if !affectedCheck(affected) {
 		return errors.New("We did not delete the user? We affected " + string(affected) + " rows")
 	}
+
+	return nil
+}
+
+func (manager *StorageManager) ExecOneRow(sql string, args ...interface{}) error {
+	return manager.Exec(sql, func(affected int64) bool {return affected == 1}, args)
+}
+
+func (manager *StorageManager) ExecAtLeastOneRow(sql string, args ...interface{}) error {
+	return manager.Exec(sql, func(affected int64) bool {return affected > 0}, args)
 }

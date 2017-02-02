@@ -91,13 +91,7 @@ func (manager *UserManager) CreateUser(username string, password string) (*User,
 	}
 
 	// Create the user
-	err = manager.storage.Exec(
-		CREATE_USER_SQL,
-		func(affected int64) bool {return affected == 1},
-		[]interface{}{username, salt, password, false},
-	)
-
-	if err != nil {
+	if err = manager.storage.ExecOneRow(CREATE_USER_SQL, []interface{}{username, salt, password, false}); err != nil {
 		return &User{}, err
 	}
 
@@ -163,13 +157,8 @@ func (manager *UserManager) UpdatePassword(username string, password string) err
 	}
 
 	// Update the password of the user
-	err = manager.storage.Exec(
-		UPDATE_PASSWORD_SQL,
-		func(affected int64) bool {return affected == 1},
-		[]interface{}{username, salt, password, false},
-	)
-
-	if err != nil {
+	args := []interface{}{username, salt, password, false}
+	if err = manager.storage.ExecOneRow(UPDATE_PASSWORD_SQL, args); err != nil {
 		return err
 	}
 
@@ -195,23 +184,12 @@ func (manager *UserManager) DeleteUser(username string) error {
 	}
 
 	// Mark the user as deleted
-	err = manager.storage.Exec(
-		DELETE_USER_SQL,
-		func(affected int64) bool {return affected == 1},
-		[]interface{}{username})
-
-	if err != nil {
+	if err = manager.storage.ExecOneRow(DELETE_USER_SQL, []interface{}{username}); err != nil {
 		return err
 	}
 
 	// Remove the user out of all their rooms
-	err = manager.storage.Exec(
-		DELETE_ROOMS_USER_SQL,
-		func(affected int64) bool {return affected > 0},
-		[]interface{}{user.Id},
-	)
-
-	if err != nil {
+	if err = manager.storage.ExecAtLeastOneRow(DELETE_ROOMS_USER_SQL, []interface{}{user.Id}); err != nil {
 		return err
 	}
 
