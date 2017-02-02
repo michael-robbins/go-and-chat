@@ -25,7 +25,7 @@ func getUserInput(message string) string {
 func getClientCommandsOption(client_commands []COMMAND) int {
 	number := -1
 
-	// Inner for loop will break when we have a valid choice
+	var err error
 	for {
 		fmt.Println("Please select an option:")
 		for i, command := range client_commands {
@@ -37,7 +37,7 @@ func getClientCommandsOption(client_commands []COMMAND) int {
 			return -1
 		}
 
-		number, err := strconv.Atoi(text)
+		number, err = strconv.Atoi(text)
 		if err != nil || number < 1 || number > len(client_commands) {
 			// Invalid choice, force the for loop to iterate
 			fmt.Print("Invalid choice (Valid options are: 1 -> ", len(client_commands), ").\n")
@@ -115,6 +115,7 @@ func getTextMessage() string {
 func GetStartupChoice(choices []string) int {
 	startupChoice := -1
 
+	var err error
 	for {
 		fmt.Println("Please select a choice:")
 		for i, choice := range choices {
@@ -126,7 +127,7 @@ func GetStartupChoice(choices []string) int {
 			return -1
 		}
 
-		startupChoice, err := strconv.Atoi(text)
+		startupChoice, err = strconv.Atoi(text)
 		if err != nil || startupChoice < 1 || startupChoice > len(choices) {
 			// Invalid choice, force the for loop to iterate
 			fmt.Print("Invalid choice (Valid options are: 1 -> ", len(choices), ").\n")

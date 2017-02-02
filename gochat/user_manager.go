@@ -18,15 +18,15 @@ const (
 const (
 	CREATE_USER_SQL     = "INSERT INTO users (username, salt, password_sha256, Deleted) VALUES (?, ?, ?, ?)"
 	UPDATE_PASSWORD_SQL = "UPDATE users SET password_sha256=? WHERE username=?"
-	DELETE_USER_SQL     = "UPDATE users SET Deleted=true WHERE username=?"
-	GET_USER_SQL        = "SELECT * FROM users WHERE username=? AND delted=false"
+	DELETE_USER_SQL     = "UPDATE users SET deleted=true WHERE username=?"
+	GET_USER_SQL        = "SELECT * FROM users WHERE username=? AND deleted=false"
 	USER_SCHEMA         = `
 	CREATE TABLE IF NOT EXISTS users (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		username TEXT UNIQUE,
 		salt TEXT,
 		password_sha256	TEXT,
-		Deleted BOOLEAN
+		deleted BOOLEAN
 	)`
 )
 

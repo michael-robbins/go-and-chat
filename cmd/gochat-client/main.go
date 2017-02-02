@@ -78,7 +78,14 @@ func main() {
 		choice := gochat.GetStartupChoice(choices)
 		if choice == -1 {
 			// The user has indicated to quit the program
+			fmt.Println("Quitting")
 			return
+		}
+
+		if choice == 1 {
+			fmt.Println("Registering User:")
+		} else if choice == 2 {
+			fmt.Println("Logging In:")
 		}
 
 		fmt.Print("Enter Username: ")
@@ -100,7 +107,7 @@ func main() {
 				logger.Error(err)
 			}
 
-			fmt.Println("Registration request successfull, please raise for response before logging in!")
+			fmt.Println("Registration request successfull, please wait for response before logging in!")
 		} else if choice == 2 {
 			// Attempt to authenticate the user
 			if err := client.Authenticate(username, password); err != nil {

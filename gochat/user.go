@@ -19,7 +19,7 @@ type User struct {
 	salt            string `db:"salt"`
 	password_sha256 string `db:"password_sha256"`
 	conn            net.Conn
-	Deleted         bool `db:"Deleted"`
+	Deleted         bool `db:"deleted"`
 }
 
 func (user *User) GetToken() string {
