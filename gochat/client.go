@@ -44,8 +44,13 @@ func (client *ChatClient) Connect(connection_string string) (net.Conn, error) {
 }
 
 func (client *ChatClient) Register(username string, password string) error {
+	// Hash the password
+	password_hash := sha256.Sum256([]byte(password))
+	password_hash_hex := hex.EncodeToString(password_hash[:])
+
+	client.logger.Debug("Sending registration request to the server")
 	return SendRemoteCommand(client.conn,
-		BuildMessage())
+		BuildMessage(REGISTER, RegisterMessage{Username: username, PasswordHash: password_hash_hex}))
 }
 
 func (client *ChatClient) Authenticate(username string, password string) error {
