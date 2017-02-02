@@ -31,17 +31,17 @@ type DatabaseConfig struct {
 }
 
 func NewChatServer(logger *log.Entry, config ServerConfig) (*ChatServer, error) {
-	storageManager, err := NewStorageManager(config.Database)
+	storageManager, err := NewStorageManager(config.Database, logger)
 	if err != nil {
 		return &ChatServer{}, err
 	}
 
-	userManager, err := NewUserManager(storageManager)
+	userManager, err := NewUserManager(storageManager, logger)
 	if err != nil {
 		return &ChatServer{}, err
 	}
 
-	roomManager, err := NewRoomManager(storageManager)
+	roomManager, err := NewRoomManager(storageManager, logger)
 	if err != nil {
 		return &ChatServer{}, err
 	}

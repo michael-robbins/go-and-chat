@@ -132,7 +132,9 @@ UserMenuLoop:
 			message_channel <- message
 		}
 
+		// The user now thinks they're in a room, so we enter 'room' mode and poll them for messages to send
 		if command == JOIN_ROOM {
+			// Keep looping asking for messages to send until they quit
 			for {
 				textMessage := getTextMessage()
 

@@ -7,14 +7,16 @@ import (
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
+	log "github.com/Sirupsen/logrus"
 )
 
 type StorageManager struct {
 	config DatabaseConfig
+	logger *log.Entry
 	db     *sqlx.DB
 }
 
-func NewStorageManager(config DatabaseConfig) (*StorageManager, error) {
+func NewStorageManager(config DatabaseConfig, logger *log.Entry) (*StorageManager, error) {
 	var db *sqlx.DB
 	var err error
 
@@ -48,7 +50,7 @@ func NewStorageManager(config DatabaseConfig) (*StorageManager, error) {
 		return &StorageManager{}, err
 	}
 
-	return &StorageManager{config: config, db: db}, nil
+	return &StorageManager{config: config, logger: logger, db: db}, nil
 }
 
 func (manager *StorageManager) CloseStorage() error {

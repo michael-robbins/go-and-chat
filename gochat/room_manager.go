@@ -2,7 +2,8 @@ package gochat
 
 import (
 	"errors"
-	"fmt"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 const (
@@ -20,19 +21,18 @@ const (
 
 type RoomManager struct {
 	storage    *StorageManager
+	logger	   *log.Entry
 	room_cache map[string]*Room
 }
 
-func NewRoomManager(storage *StorageManager) (*RoomManager, error) {
+func NewRoomManager(storage *StorageManager, logger *log.Entry) (*RoomManager, error) {
 	// Create the rooms table if it doesn't already exist
-	result, err := storage.db.Exec(ROOM_SCHEMA)
+	_, err := storage.db.Exec(ROOM_SCHEMA)
 	if err != nil {
 		return &RoomManager{}, err
 	}
-	fmt.Println("Attempted to create rooms table!")
-	fmt.Println(result)
 
-	return &RoomManager{storage: storage}, nil
+	return &RoomManager{storage: storage, logger: logger}, nil
 }
 
 func (manager *RoomManager) GetRoom(name string) (*Room, error) {

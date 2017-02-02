@@ -5,9 +5,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"io"
 	"time"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 const (
@@ -31,21 +32,19 @@ const (
 
 type UserManager struct {
 	storage     *StorageManager
+	logger	    *log.Entry
 	user_cache  map[string]*User
 	token_cache map[string]*User
 }
 
-func NewUserManager(storage *StorageManager) (*UserManager, error) {
+func NewUserManager(storage *StorageManager, logger *log.Entry) (*UserManager, error) {
 	// Create the users table if it doesn't already exist
-	result, err := storage.db.Exec(USER_SCHEMA)
+	_, err := storage.db.Exec(USER_SCHEMA)
 	if err != nil {
 		return &UserManager{}, err
 	}
 
-	fmt.Println("Attempted to create users table!")
-	fmt.Println(result)
-
-	return &UserManager{storage: storage}, nil
+	return &UserManager{storage: storage, logger: logger}, nil
 }
 
 func (manager *UserManager) GetUser(username string) (*User, error) {
@@ -106,19 +105,16 @@ func (manager *UserManager) AuthenticateUser(username string, password_sha256 st
 
 	client_hash, err := hex.DecodeString(password_sha256)
 	if err != nil {
-		fmt.Println(err)
 		return &User{}, errors.New("Error decoding users password hash.")
 	}
 
 	server_salt, err := hex.DecodeString(user.salt)
 	if err != nil {
-		fmt.Println(err)
 		return &User{}, errors.New("Error decoding users server salt.")
 	}
 
 	server_hash, err := hex.DecodeString(user.password_sha256)
 	if err != nil {
-		fmt.Println(err)
 		return &User{}, errors.New("Error decoding users server password hash.")
 	}
 
