@@ -18,16 +18,16 @@ type ChatServer struct {
 }
 
 type ServerConfig struct {
-	Database	DatabaseConfig		`yaml:"database"`
+	Database DatabaseConfig `yaml:"database"`
 }
 
 type DatabaseConfig struct {
-	Product		string  `yaml:"product"`
-	Host   		string  `yaml:"host"`
-	Port		string	`yaml:"port"`
-	Database	string  `yaml:"database"`
-	User		string	`yaml:"user"`
-	Password	string	`yaml:"password"`
+	Product  string `yaml:"product"`
+	Host     string `yaml:"host"`
+	Port     string `yaml:"port"`
+	Database string `yaml:"database"`
+	User     string `yaml:"user"`
+	Password string `yaml:"password"`
 }
 
 func NewChatServer(logger *log.Entry, config ServerConfig) (*ChatServer, error) {
@@ -49,7 +49,7 @@ func NewChatServer(logger *log.Entry, config ServerConfig) (*ChatServer, error) 
 	chat_server := ChatServer{
 		user_manager: userManager,
 		room_manager: roomManager,
-		logger: logger,
+		logger:       logger,
 	}
 
 	return &chat_server, nil

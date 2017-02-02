@@ -12,14 +12,14 @@ const (
 )
 
 type User struct {
-	Id              int			`db:"id"`
-	Username        string		`db:"username"`
+	Id              int    `db:"id"`
+	Username        string `db:"username"`
 	token           string
 	token_expiry    time.Time
-	salt            string		`db:"salt"`
-	password_sha256 string		`db:"password_sha256"`
+	salt            string `db:"salt"`
+	password_sha256 string `db:"password_sha256"`
 	conn            net.Conn
-	Deleted         bool		`db:"Deleted"`
+	Deleted         bool `db:"Deleted"`
 }
 
 func (user *User) GetToken() string {

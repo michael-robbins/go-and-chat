@@ -7,8 +7,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/michael-robbins/go-and-chat/gochat"
 	log "github.com/Sirupsen/logrus"
+	"github.com/michael-robbins/go-and-chat/gochat"
 )
 
 func printDefaults(usageTitle string, error string) {
@@ -42,7 +42,7 @@ func main() {
 
 	if *logFile != "" {
 		// Attempt to either open or create the log file
-		f, err := os.OpenFile(*logFile, os.O_WRONLY | os.O_CREATE, 0755)
+		f, err := os.OpenFile(*logFile, os.O_WRONLY|os.O_CREATE, 0755)
 		if err != nil {
 			printDefaults(usageTitle, "Unable to log to the request file, unable to open/create it.")
 			return

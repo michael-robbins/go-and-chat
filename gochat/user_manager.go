@@ -15,11 +15,11 @@ const (
 )
 
 const (
-	CREATE_USER_SQL = "INSERT INTO users (username, salt, password_sha256, Deleted) VALUES (?, ?, ?, ?)"
+	CREATE_USER_SQL     = "INSERT INTO users (username, salt, password_sha256, Deleted) VALUES (?, ?, ?, ?)"
 	UPDATE_PASSWORD_SQL = "UPDATE users SET password_sha256=? WHERE username=?"
-	DELETE_USER_SQL = "UPDATE users SET Deleted=true WHERE username=?"
-	GET_USER_SQL = "SELECT * FROM users WHERE username=? AND delted=false"
-	USER_SCHEMA = `
+	DELETE_USER_SQL     = "UPDATE users SET Deleted=true WHERE username=?"
+	GET_USER_SQL        = "SELECT * FROM users WHERE username=? AND delted=false"
+	USER_SCHEMA         = `
 	CREATE TABLE IF NOT EXISTS users (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		username TEXT UNIQUE,
@@ -30,8 +30,8 @@ const (
 )
 
 type UserManager struct {
-	storage		*StorageManager
-	user_cache	map[string]*User
+	storage     *StorageManager
+	user_cache  map[string]*User
 	token_cache map[string]*User
 }
 

@@ -236,7 +236,7 @@ func (client *ChatClient) HandleServerMessage(message Message, cli_notification 
 		contents := message.Contents.(ListRoomsMessage)
 		client.DisplayRoomListingMessage(contents)
 	case LEAVE_ROOM:
-		cli_notification<- message
+		cli_notification <- message
 	default:
 		// Unknown Message command
 		return errors.New("Unable to determine incoming Message type from server.")

@@ -5,11 +5,11 @@ import (
 )
 
 type Room struct {
-	Id         int		`db:"id"`
-	Name       string	`db:"name"`
-	users      []*User
-	Capacity   int		`db:"capacity"`
-	Closed     bool		`db:"closed"`
+	Id       int    `db:"id"`
+	Name     string `db:"name"`
+	users    []*User
+	Capacity int  `db:"capacity"`
+	Closed   bool `db:"closed"`
 }
 
 func (room *Room) AddUser(user *User) {
@@ -38,7 +38,7 @@ func (room *Room) RemoveUser(user *User) error {
 		return err
 	}
 
-    // Capacity is only for normal users, super users do not count towards the Capacity of a Room
+	// Capacity is only for normal users, super users do not count towards the Capacity of a Room
 	room.Capacity = room.Capacity - 1
 
 	return nil

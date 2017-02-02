@@ -5,11 +5,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/michael-robbins/go-and-chat/gochat"
 	log "github.com/Sirupsen/logrus"
+	"github.com/michael-robbins/go-and-chat/gochat"
 )
-
-
 
 func printDefaults(usageTitle string, error string) {
 	fmt.Fprintln(os.Stderr, usageTitle)
@@ -42,7 +40,7 @@ func main() {
 	}
 
 	if *logFile != "" {
-		f, err := os.OpenFile(*logFile, os.O_WRONLY | os.O_CREATE, 0644)
+		f, err := os.OpenFile(*logFile, os.O_WRONLY|os.O_CREATE, 0644)
 		if err != nil {
 			printDefaults(usageTitle, "Unable to log to the request file, unable to open/create it.")
 			return

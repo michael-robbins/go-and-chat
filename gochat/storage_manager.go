@@ -10,8 +10,8 @@ import (
 )
 
 type StorageManager struct {
-	config		DatabaseConfig
-	db			*sqlx.DB
+	config DatabaseConfig
+	db     *sqlx.DB
 }
 
 func NewStorageManager(config DatabaseConfig) (*StorageManager, error) {
@@ -28,15 +28,15 @@ func NewStorageManager(config DatabaseConfig) (*StorageManager, error) {
 		)
 
 		if config.Password != "" {
-			connection_string += " password="+config.Password
+			connection_string += " password=" + config.Password
 		}
 
 		if config.Host != "" {
-			connection_string += " host="+config.Host
+			connection_string += " host=" + config.Host
 		}
 
 		if config.Port != "" {
-			connection_string += " port="+config.Port
+			connection_string += " port=" + config.Port
 		}
 
 		db, err = sqlx.Open("postgres", connection_string)
@@ -69,16 +69,20 @@ func (manager *StorageManager) Exec(sql string, affectedCheck func(int64) bool, 
 	}
 
 	if !affectedCheck(affected) {
-		return errors.New("We did not delete the user? We affected " + string(affected) + " rows")
+		return errors.New("We affected a different number of rows than we were expecting (" + string(affected) + ")")
 	}
 
 	return nil
 }
 
+func (manager *StorageManager) ExecZeroOrMoreRows(sql string, args ...interface{}) error {
+	return manager.Exec(sql, func(affected int64) bool { return affected >= 0 }, args)
+}
+
 func (manager *StorageManager) ExecOneRow(sql string, args ...interface{}) error {
-	return manager.Exec(sql, func(affected int64) bool {return affected == 1}, args)
+	return manager.Exec(sql, func(affected int64) bool { return affected == 1 }, args)
 }
 
 func (manager *StorageManager) ExecAtLeastOneRow(sql string, args ...interface{}) error {
-	return manager.Exec(sql, func(affected int64) bool {return affected > 0}, args)
+	return manager.Exec(sql, func(affected int64) bool { return affected > 0 }, args)
 }
