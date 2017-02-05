@@ -2,6 +2,7 @@ package gochat
 
 import (
 	"encoding/gob"
+	"fmt"
 	"math/rand"
 	"time"
 )
@@ -16,13 +17,21 @@ type User struct {
 	Username        string `db:"username"`
 	Salt            string `db:"salt"`
 	Password_sha256 string `db:"password_sha256"`
-	Deleted         bool `db:"deleted"`
-	token           string
-	token_expiry    time.Time
-	encoder			*gob.Encoder
+	Deleted         bool   `db:"deleted"`
 }
 
-func (user *User) GetToken() string {
+type ServerUser struct {
+	User        *User
+	token       string
+	tokenExpiry time.Time
+	encoder     *gob.Encoder
+}
+
+func (user *ServerUser) String() string {
+	return fmt.Sprintf("%s", user.User.Username)
+}
+
+func (user *ServerUser) GetToken() string {
 	if user.token == "" {
 		user.generateToken()
 	}
@@ -30,7 +39,7 @@ func (user *User) GetToken() string {
 	return user.token
 }
 
-func (user *User) generateToken() {
+func (user *ServerUser) generateToken() {
 	// Seed the RNG
 	rand.Seed(time.Now().UnixNano())
 
@@ -43,5 +52,5 @@ func (user *User) generateToken() {
 
 	// Return the Token (in string form) and the expiry for the Token
 	user.token = string(token)
-	user.token_expiry = time.Now()
+	user.tokenExpiry = time.Now()
 }

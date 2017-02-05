@@ -6,10 +6,10 @@ import (
 	"io/ioutil"
 	"net"
 	"path/filepath"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 	yaml "gopkg.in/yaml.v2"
-	"time"
 )
 
 type ChatServer struct {
@@ -96,7 +96,6 @@ func (server *ChatServer) HandleIncomingConnection(connection net.Conn) {
 			return
 		} else if message.Command != "" {
 			// Only send a reply if the command is not empty
-			server.logger.Debug("Sending response back to client")
 			encoder.Encode(reply)
 		}
 	}
@@ -151,11 +150,12 @@ func (server *ChatServer) HandleMessage(message Message, encoder *gob.Encoder) (
 		var message Message
 		if err != nil {
 			server.logger.Debug("Sending back failed authentication attempt")
+			server.logger.Error(err)
 			textMessage := TextMessage{Username: "SERVER", Room: "SERVER", Text: "Authentication Failed: " + err.Error()}
 			message = BuildMessage(RECV_MSG, RecvTextMessage{Message: textMessage})
 		} else {
 			server.logger.Debug("Sending back successful authentication attempt")
-			message = BuildMessage(TOKEN, TokenMessage{Username: user.Username, Token: user.GetToken()})
+			message = BuildMessage(TOKEN, TokenMessage{Username: user.User.Username, Token: user.GetToken()})
 		}
 
 		return message, nil
@@ -169,26 +169,46 @@ func (server *ChatServer) HandleMessage(message Message, encoder *gob.Encoder) (
 		//contents := message.Contents.(JoinRoomMessage)
 		room.AddUser(user)
 	case LEAVE_ROOM:
+		var textMessage TextMessage
 		if err := room.RemoveUser(user); err != nil {
-			return Message{}, err
+			server.logger.Debug("Failed to remove user " + user.String() + " from room " + room.String())
+			server.logger.Error(err)
+			textMessage = TextMessage{Username: "SERVER", Room: "SERVER", Text: "Failed to remove you from: " + room.String()}
+		} else {
+			textMessage = TextMessage{Username: "SERVER", Room: room.String(), Text: "Successfully removed you from: " + room.String()}
 		}
+
+		return BuildMessage(RECV_MSG, RecvTextMessage{Message: textMessage}), nil
 	case CREATE_ROOM:
 		contents := message.Contents.(CreateRoomMessage)
+		var textMessage TextMessage
+
 		_, err := server.room_manager.CreateRoom(contents.Room, contents.Capacity)
 		if err != nil {
-			return Message{}, err
+			server.logger.Debug("Failed to create room " + contents.Room)
+			server.logger.Error(err)
+			textMessage = TextMessage{Username: "SERVER", Room: "SERVER", Text: "Failed to create room: " + room.String()}
+		} else {
+			textMessage = TextMessage{Username: "SERVER", Room: "SERVER", Text: "Successfully created room: " + room.String()}
 		}
+
+		return BuildMessage(RECV_MSG, RecvTextMessage{Message: textMessage}), nil
 	case CLOSE_ROOM:
 		contents := message.Contents.(CloseRoomMessage)
 		room, err := server.room_manager.CloseRoom(contents.Room)
 		if err != nil {
-			return Message{}, err
+			textMessage := TextMessage{Username: "SERVER", Room: "SERVER", Text: "Failed to close room: " + contents.Room}
+			return BuildMessage(RECV_MSG, RecvTextMessage{Message: textMessage}), nil
 		}
 
+		// Notify all users that the room has been closed
 		for _, user := range room.users {
 			SendRemoteCommand(user.encoder, BuildMessage(RECV_MSG, RecvTextMessage{Message: TextMessage{Username: "SERVER", Room: room.Name, Text: "This room has been closed."}}))
 			SendRemoteCommand(user.encoder, BuildMessage(LEAVE_ROOM, LeaveRoomMessage{Room: room.Name}))
 		}
+
+		textMessage := TextMessage{Username: "SERVER", Room: "SERVER", Text: "Successfully closed room: " + room.Name}
+		return BuildMessage(RECV_MSG, RecvTextMessage{Message: textMessage}), nil
 	}
 
 	return Message{}, nil
@@ -247,7 +267,7 @@ func (server *ChatServer) getRoomIfRequired(message Message) (*Room, error) {
 	return room, nil
 }
 
-func (server *ChatServer) getUserIfRequired(message Message, encoder *gob.Encoder) (*User, error) {
+func (server *ChatServer) getUserIfRequired(message Message, encoder *gob.Encoder) (*ServerUser, error) {
 	var name string
 
 	switch message.Command {
@@ -258,7 +278,7 @@ func (server *ChatServer) getUserIfRequired(message Message, encoder *gob.Encode
 	case LEAVE_ROOM:
 		name = message.Contents.(LeaveRoomMessage).Username
 	default:
-		return &User{}, nil
+		return &ServerUser{}, nil
 	}
 
 	user, err := server.user_manager.GetUser(name)

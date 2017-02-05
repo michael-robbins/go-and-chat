@@ -22,7 +22,7 @@ const (
 type RoomManager struct {
 	storage    *StorageManager
 	logger	   *log.Entry
-	room_cache map[string]*Room
+	roomCache map[string]*Room
 }
 
 func NewRoomManager(storage *StorageManager, logger *log.Entry) (*RoomManager, error) {
@@ -32,12 +32,18 @@ func NewRoomManager(storage *StorageManager, logger *log.Entry) (*RoomManager, e
 		return &RoomManager{}, err
 	}
 
-	return &RoomManager{storage: storage, logger: logger}, nil
+	manager := RoomManager{
+		storage: storage,
+		logger: logger,
+		roomCache: make(map[string]*Room),
+	}
+
+	return &manager, nil
 }
 
 func (manager *RoomManager) GetRoom(name string) (*Room, error) {
 	// If the Room has already been extracted from storage, just return them
-	if room, ok := manager.room_cache[name]; ok {
+	if room, ok := manager.roomCache[name]; ok {
 		if room.Closed {
 			return nil, errors.New("Room is closed.")
 		}
@@ -53,7 +59,7 @@ func (manager *RoomManager) GetRoom(name string) (*Room, error) {
 	}
 
 	// Add the Room to the cache regardless of if it's closed or not
-	manager.room_cache[name] = room
+	manager.roomCache[name] = room
 
 	if room.Closed {
 		return nil, errors.New("Room is closed.")
@@ -74,7 +80,7 @@ func (manager *RoomManager) CreateRoom(name string, capacity int) (*Room, error)
 	}
 
 	// Add them into the cache as well
-	manager.room_cache[room.Name] = room
+	manager.roomCache[room.Name] = room
 
 	return room, nil
 }
@@ -87,7 +93,7 @@ func (manager *RoomManager) CloseRoom(name string) (*Room, error) {
 	}
 
 	// Remove the room from the cache
-	delete(manager.room_cache, name)
+	delete(manager.roomCache, name)
 
 	// Mark the room as deleted
 	sql := manager.storage.db.Rebind(DELETE_ROOM_SQL)

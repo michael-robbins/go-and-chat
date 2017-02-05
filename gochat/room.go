@@ -2,21 +2,26 @@ package gochat
 
 import (
 	"errors"
+	"fmt"
 )
 
 type Room struct {
 	Id       int    `db:"id"`
 	Name     string `db:"name"`
-	users    []*User
+	users    []*ServerUser
 	Capacity int  `db:"capacity"`
 	Closed   bool `db:"closed"`
 }
 
-func (room *Room) AddUser(user *User) {
+func (room *Room) String() string {
+	return fmt.Sprintf("%s", room.Name)
+}
+
+func (room *Room) AddUser(user *ServerUser) {
 	room.users = append(room.users, user)
 }
 
-func removeUserFromList(user *User, array []*User) error {
+func removeUserFromList(user *ServerUser, array []*ServerUser) error {
 	index := -1
 	for i, room_user := range array {
 		if room_user == user {
@@ -25,7 +30,7 @@ func removeUserFromList(user *User, array []*User) error {
 	}
 
 	if index == -1 {
-		return errors.New("User does not exist in this list")
+		return errors.New("ServerUser does not exist in this list")
 	}
 
 	array = append(array[:index], array[index+1:]...)
@@ -33,7 +38,7 @@ func removeUserFromList(user *User, array []*User) error {
 	return nil
 }
 
-func (room *Room) RemoveUser(user *User) error {
+func (room *Room) RemoveUser(user *ServerUser) error {
 	if err := removeUserFromList(user, room.users); err != nil {
 		return err
 	}

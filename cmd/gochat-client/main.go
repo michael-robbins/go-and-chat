@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/michael-robbins/go-and-chat/gochat"
 	log "github.com/Sirupsen/logrus"
@@ -89,20 +90,23 @@ func main() {
 		}
 
 		if choice == 1 {
-			fmt.Println("Registering User:")
+			fmt.Println("Registering ServerUser:")
 		} else if choice == 2 {
 			fmt.Println("Logging In:")
 		}
 
 		fmt.Print("Enter Username: ")
 		username, _ := reader.ReadString('\n')
+		username = strings.TrimSuffix(username, "\n")
 
 		fmt.Print("Enter Password: ")
 		password, _ := reader.ReadString('\n')
+		password = strings.TrimSuffix(password, "\n")
 
 		if choice == 1 {
 			fmt.Print("Enter Password (again): ")
 			password_again, _ := reader.ReadString('\n')
+			password_again = strings.TrimSuffix(password_again, "\n")
 
 			if password != password_again {
 				fmt.Println("Passwords do not match!")

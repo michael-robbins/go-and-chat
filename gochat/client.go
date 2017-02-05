@@ -162,7 +162,7 @@ UserMenuLoop:
 				textMessage := getTextMessage()
 
 				if textMessage == "" {
-					// User has indicated to leave the room
+					// ServerUser has indicated to leave the room
 					message, err = client.BuildLeaveRoomMessage(roomName)
 					if err != nil {
 						fmt.Println(err)
@@ -174,7 +174,7 @@ UserMenuLoop:
 					break
 				}
 
-				// User has indicated to leave the room
+				// ServerUser has indicated to leave the room
 				message, err = client.BuildSendMessageMessage(textMessage, roomName)
 				if err != nil {
 					fmt.Println(err)
@@ -291,6 +291,7 @@ func (client *ChatClient) HandleServerMessage(message Message) error {
 	case TOKEN:
 		contents := message.Contents.(TokenMessage)
 		client.token = contents.Token
+		fmt.Println("Successfully Authenticated with the server!")
 	case RECV_MSG:
 		contents := message.Contents.(RecvTextMessage)
 		client.DisplayTextMessage(contents.Message)
