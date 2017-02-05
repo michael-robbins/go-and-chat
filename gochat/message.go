@@ -2,7 +2,6 @@ package gochat
 
 import (
 	"encoding/gob"
-	"net"
 )
 
 type COMMAND string
@@ -98,8 +97,7 @@ func RegisterStructs() {
 	gob.Register(CloseRoomMessage{})
 }
 
-func SendRemoteCommand(connection net.Conn, message Message) error {
-	encoder := gob.NewEncoder(connection)
+func SendRemoteCommand(encoder *gob.Encoder, message Message) error {
 	return encoder.Encode(message)
 }
 

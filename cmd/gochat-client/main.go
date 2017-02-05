@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/michael-robbins/go-and-chat/gochat"
 	log "github.com/Sirupsen/logrus"
@@ -60,16 +59,23 @@ func main() {
 	client, _ := gochat.NewChatClient(logger)
 
 	logger.Debug("Attempting to connect to: " + *connection_string)
-	connection, err := client.Connect(*connection_string)
-	if err != nil {
+	if err := client.Connect(*connection_string); err != nil {
 		logger.Error(err)
 		return
 	}
 	logger.Debug("Successfully connected to: " + *connection_string)
 
 	// Spin off a thread to listen for server events
+	server_disconnect := make(chan int, 1)
 	server_messages := make(chan gochat.Message, 1)
-	go client.ListenToServer(server_messages)
+	go client.ListenToServer(server_messages, server_disconnect)
+
+	// Create the channels the client will populate
+	client_messages := make(chan gochat.Message, 1)
+
+	// Listen to events on the server & client channels.
+	eventloop_exit := make(chan int, 1)
+	go client.EventLoop(server_messages, client_messages, eventloop_exit)
 
 	// Ask the user what they want to do
 	choices := []string{"Register", "Log In"}
@@ -119,32 +125,12 @@ func main() {
 		}
 	}
 
-	// Spin off a thread to listen for client events
-	client_messages := make(chan gochat.Message, 1)
-	exit_decision := make(chan int, 1)
-	go client.ListenToUser(client_messages, exit_decision)
+	// Enter the main CLI menu
+	client.ListenToUser(client_messages)
 
-	// Listen to events on the server & client channels
-EventLoop:
-	for {
-		select {
-		case message := <-server_messages:
-			// Handle the server initiated message
-			if err := client.HandleServerMessage(message); err != nil {
-				logger.Error(err)
-			}
-		case message := <-client_messages:
-			// Handle the client initiated message
-			if err := gochat.SendRemoteCommand(connection, message); err != nil {
-				logger.Error(err)
-			}
-		case _ = <-exit_decision:
-			break EventLoop
-		}
-
-		// Sleep for a second then check again for any server/client messages or exit decisions
-		time.Sleep(time.Second)
-	}
+	// Block and wait for the eventloop and server connection to finish up
+	eventloop_exit<- 1
+	server_disconnect<- 1
 
 	logger.Info("Quitting!")
 }

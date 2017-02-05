@@ -8,6 +8,7 @@ import (
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
 	log "github.com/Sirupsen/logrus"
+	"database/sql/driver"
 )
 
 type StorageManager struct {
@@ -57,10 +58,9 @@ func (manager *StorageManager) CloseStorage() error {
 	return manager.db.Close()
 }
 
-// Convenience wrapper around the Exec call, it returns any errors Exec encounters
+// Convenience wrapper around the DB's Exec call result, it returns any errors Exec encounters
 // It also has an affectedCheck anon function that ensure the correct number of rows is affected
-func (manager *StorageManager) Exec(sql string, affectedCheck func(int64) bool, args ...interface{}) error {
-	result, err := manager.db.Exec(DELETE_USER_SQL, args...)
+func (manager *StorageManager) CheckExecOutcome(result driver.Result, err error, affectedCheck func(int64) bool) error {
 	if err != nil {
 		return err
 	}
@@ -77,14 +77,14 @@ func (manager *StorageManager) Exec(sql string, affectedCheck func(int64) bool, 
 	return nil
 }
 
-func (manager *StorageManager) ExecZeroOrMoreRows(sql string, args ...interface{}) error {
-	return manager.Exec(sql, func(affected int64) bool { return affected >= 0 }, args)
+func (manager *StorageManager) ExecZeroOrMoreRows(result driver.Result, err error) error {
+	return manager.CheckExecOutcome(result, err, func(affected int64) bool { return affected >= 0 })
 }
 
-func (manager *StorageManager) ExecOneRow(sql string, args ...interface{}) error {
-	return manager.Exec(sql, func(affected int64) bool { return affected == 1 }, args)
+func (manager *StorageManager) ExecOneRow(result driver.Result, err error) error {
+	return manager.CheckExecOutcome(result, err, func(affected int64) bool { return affected == 1 })
 }
 
-func (manager *StorageManager) ExecAtLeastOneRow(sql string, args ...interface{}) error {
-	return manager.Exec(sql, func(affected int64) bool { return affected > 0 }, args)
+func (manager *StorageManager) ExecAtLeastOneRow(result driver.Result, err error) error {
+	return manager.CheckExecOutcome(result, err, func(affected int64) bool { return affected > 0 })
 }

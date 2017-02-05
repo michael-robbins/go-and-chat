@@ -17,9 +17,9 @@ const (
 
 const (
 	CREATE_USER_SQL     = "INSERT INTO users (username, salt, password_sha256, Deleted) VALUES (?, ?, ?, ?)"
-	UPDATE_PASSWORD_SQL = "UPDATE users SET password_sha256=? WHERE username=?"
+	UPDATE_PASSWORD_SQL = "UPDATE users SET salt=?, password_sha256=? WHERE username=?"
 	DELETE_USER_SQL     = "UPDATE users SET deleted=true WHERE username=?"
-	GET_USER_SQL        = "SELECT * FROM users WHERE username=? AND deleted=false"
+	GET_USER_SQL        = "SELECT * FROM users WHERE username=? AND deleted='false'"
 	USER_SCHEMA         = `
 	CREATE TABLE IF NOT EXISTS users (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -82,19 +82,16 @@ func hashPassword(password string) (string, string, error) {
 	return hex.EncodeToString(salt), hex.EncodeToString(salted_hash[:]), nil
 }
 
-func (manager *UserManager) CreateUser(username string, password string) (*User, error) {
+func (manager *UserManager) CreateUser(username string, password string) error {
 	// Hash the password, generating a new salt as well
 	salt, password, err := hashPassword(password)
 	if err != nil {
-		return &User{}, err
+		return err
 	}
 
 	// Create the user
-	if err = manager.storage.ExecOneRow(CREATE_USER_SQL, []interface{}{username, salt, password, false}); err != nil {
-		return &User{}, err
-	}
-
-	return manager.GetUser(username)
+	sql := manager.storage.db.Rebind(CREATE_USER_SQL)
+	return manager.storage.ExecOneRow(manager.storage.db.Exec(sql, username, salt, password, false))
 }
 
 func (manager *UserManager) AuthenticateUser(username string, password_sha256 string) (*User, error) {
@@ -108,12 +105,12 @@ func (manager *UserManager) AuthenticateUser(username string, password_sha256 st
 		return &User{}, errors.New("Error decoding users password hash.")
 	}
 
-	server_salt, err := hex.DecodeString(user.salt)
+	server_salt, err := hex.DecodeString(user.Salt)
 	if err != nil {
 		return &User{}, errors.New("Error decoding users server salt.")
 	}
 
-	server_hash, err := hex.DecodeString(user.password_sha256)
+	server_hash, err := hex.DecodeString(user.Password_sha256)
 	if err != nil {
 		return &User{}, errors.New("Error decoding users server password hash.")
 	}
@@ -153,8 +150,8 @@ func (manager *UserManager) UpdatePassword(username string, password string) err
 	}
 
 	// Update the password of the user
-	args := []interface{}{username, salt, password, false}
-	if err = manager.storage.ExecOneRow(UPDATE_PASSWORD_SQL, args); err != nil {
+	sql := manager.storage.db.Rebind(UPDATE_PASSWORD_SQL)
+	if err := manager.storage.ExecOneRow(manager.storage.db.Exec(sql, salt, password, username)); err != nil {
 		return err
 	}
 
@@ -174,13 +171,10 @@ func (manager *UserManager) UpdatePassword(username string, password string) err
 }
 
 func (manager *UserManager) DeleteUser(username string) error {
-	// Mark the user as deleted
-	if err := manager.storage.ExecOneRow(DELETE_USER_SQL, []interface{}{username}); err != nil {
-		return err
-	}
-
 	// Remove the user from the cache
 	delete(manager.user_cache, username)
 
-	return nil
+	// Mark the user as deleted
+	sql := manager.storage.db.Rebind(DELETE_USER_SQL)
+	return manager.storage.ExecOneRow(manager.storage.db.Exec(sql, username))
 }

@@ -63,7 +63,8 @@ func (manager *RoomManager) GetRoom(name string) (*Room, error) {
 }
 
 func (manager *RoomManager) CreateRoom(name string, capacity int) (*Room, error) {
-	if err := manager.storage.ExecOneRow(CREATE_ROOM_SQL, []interface{}{name, capacity, false}); err != nil {
+	sql := manager.storage.db.Rebind(CREATE_ROOM_SQL)
+	if err := manager.storage.ExecOneRow(manager.storage.db.Exec(sql, name, capacity, false)); err != nil {
 		return &Room{}, err
 	}
 
@@ -79,18 +80,16 @@ func (manager *RoomManager) CreateRoom(name string, capacity int) (*Room, error)
 }
 
 func (manager *RoomManager) CloseRoom(name string) (*Room, error) {
+	// Attempt to get the room first, failing if it doesn't exist
 	room, err := manager.GetRoom(name)
 	if err != nil {
-		return &Room{}, err
-	}
-
-	// Mark the room as deleted
-	if err = manager.storage.ExecOneRow(DELETE_ROOM_SQL, []interface{}{name}); err != nil {
 		return &Room{}, err
 	}
 
 	// Remove the room from the cache
 	delete(manager.room_cache, name)
 
-	return room, nil
+	// Mark the room as deleted
+	sql := manager.storage.db.Rebind(DELETE_ROOM_SQL)
+	return room, manager.storage.ExecOneRow(manager.storage.db.Exec(sql, name))
 }

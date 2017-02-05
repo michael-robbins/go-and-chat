@@ -9,6 +9,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	yaml "gopkg.in/yaml.v2"
+	"time"
 )
 
 type ChatServer struct {
@@ -76,26 +77,32 @@ func (server ChatServer) Listen(connection_string string) error {
 }
 
 func (server *ChatServer) HandleIncomingConnection(connection net.Conn) {
-	defer connection.Close()
-
+	var empty_message Message
+	encoder := gob.NewEncoder(connection)
 	decoder := gob.NewDecoder(connection)
 
-	message := Message{}
-	decoder.Decode(&message)
+	for {
+		message := Message{}
+		decoder.Decode(&message)
 
-	reply, err := server.HandleMessage(message)
-	if err != nil {
-		server.logger.Error(err)
-		return
-	} else if message.Command != "" {
-		// Only send a reply if the command is not empty
-		server.logger.Debug("Sending response back to client")
-		encoder := gob.NewEncoder(connection)
-		encoder.Encode(reply)
+		if message == empty_message {
+			time.Sleep(time.Second * 1)
+			continue
+		}
+
+		reply, err := server.HandleMessage(message, encoder)
+		if err != nil {
+			server.logger.Error(err)
+			return
+		} else if message.Command != "" {
+			// Only send a reply if the command is not empty
+			server.logger.Debug("Sending response back to client")
+			encoder.Encode(reply)
+		}
 	}
 }
 
-func (server *ChatServer) HandleMessage(message Message) (Message, error) {
+func (server *ChatServer) HandleMessage(message Message, encoder *gob.Encoder) (Message, error) {
 	// If the Message provides a Token, ensure it's valid
 	passes, err := server.messagePassesTokenTest(message)
 	if err != nil {
@@ -116,7 +123,7 @@ func (server *ChatServer) HandleMessage(message Message) (Message, error) {
 
 	// Get the user if this Message has one
 	// This saves us having the same user extraction code for each Message type
-	user, err := server.getUserIfRequired(message)
+	user, err := server.getUserIfRequired(message, encoder)
 	if err != nil {
 		return Message{}, err
 	}
@@ -125,15 +132,15 @@ func (server *ChatServer) HandleMessage(message Message) (Message, error) {
 	switch message.Command {
 	case REGISTER:
 		contents := message.Contents.(RegisterMessage)
-		_, err := server.user_manager.CreateUser(contents.Username, contents.PasswordHash)
 
 		var message TextMessage
-		if err != nil {
-			server.logger.Debug("Sending back failed registration attempt")
-			message = TextMessage{Username: "SERVER", Room: "SERVER", Text: "Registration Failed: " + err.Error()}
+		if err := server.user_manager.CreateUser(contents.Username, contents.PasswordHash); err != nil {
+			server.logger.Error("Sending back failed registration attempt")
+			server.logger.Error(err)
+			message = TextMessage{Username: "SERVER", Room: "SERVER", Text: "Registration Failed."}
 		} else {
 			server.logger.Debug("Sending back successfull registration attempt")
-			message = TextMessage{Username: "SERVER", Room: "SERVER", Text: "Registration Successfull"}
+			message = TextMessage{Username: "SERVER", Room: "SERVER", Text: "Registration Successfull."}
 		}
 
 		return BuildMessage(RECV_MSG, RecvTextMessage{Message: message}), nil
@@ -154,8 +161,9 @@ func (server *ChatServer) HandleMessage(message Message) (Message, error) {
 		return message, nil
 	case SEND_MSG:
 		contents := message.Contents.(SendTextMessage)
+
 		for _, user := range room.users {
-			SendRemoteCommand(user.conn, BuildMessage(RECV_MSG, RecvTextMessage{Message: contents.Message}))
+			SendRemoteCommand(user.encoder, BuildMessage(RECV_MSG, RecvTextMessage{Message: contents.Message}))
 		}
 	case JOIN_ROOM:
 		//contents := message.Contents.(JoinRoomMessage)
@@ -178,8 +186,8 @@ func (server *ChatServer) HandleMessage(message Message) (Message, error) {
 		}
 
 		for _, user := range room.users {
-			SendRemoteCommand(user.conn, BuildMessage(RECV_MSG, RecvTextMessage{Message: TextMessage{Username: "SERVER", Room: room.Name, Text: "This room has been closed."}}))
-			SendRemoteCommand(user.conn, BuildMessage(LEAVE_ROOM, LeaveRoomMessage{Room: room.Name}))
+			SendRemoteCommand(user.encoder, BuildMessage(RECV_MSG, RecvTextMessage{Message: TextMessage{Username: "SERVER", Room: room.Name, Text: "This room has been closed."}}))
+			SendRemoteCommand(user.encoder, BuildMessage(LEAVE_ROOM, LeaveRoomMessage{Room: room.Name}))
 		}
 	}
 
@@ -239,7 +247,7 @@ func (server *ChatServer) getRoomIfRequired(message Message) (*Room, error) {
 	return room, nil
 }
 
-func (server *ChatServer) getUserIfRequired(message Message) (*User, error) {
+func (server *ChatServer) getUserIfRequired(message Message, encoder *gob.Encoder) (*User, error) {
 	var name string
 
 	switch message.Command {
@@ -250,13 +258,16 @@ func (server *ChatServer) getUserIfRequired(message Message) (*User, error) {
 	case LEAVE_ROOM:
 		name = message.Contents.(LeaveRoomMessage).Username
 	default:
-		return nil, nil
+		return &User{}, nil
 	}
 
 	user, err := server.user_manager.GetUser(name)
 	if err != nil {
 		return nil, err
 	}
+
+	// Save the encoder so we can send the user messages later
+	user.encoder = encoder
 
 	return user, nil
 }

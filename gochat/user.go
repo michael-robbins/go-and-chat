@@ -1,8 +1,8 @@
 package gochat
 
 import (
+	"encoding/gob"
 	"math/rand"
-	"net"
 	"time"
 )
 
@@ -14,12 +14,12 @@ const (
 type User struct {
 	Id              int    `db:"id"`
 	Username        string `db:"username"`
+	Salt            string `db:"salt"`
+	Password_sha256 string `db:"password_sha256"`
+	Deleted         bool `db:"deleted"`
 	token           string
 	token_expiry    time.Time
-	salt            string `db:"salt"`
-	password_sha256 string `db:"password_sha256"`
-	conn            net.Conn
-	Deleted         bool `db:"deleted"`
+	encoder			*gob.Encoder
 }
 
 func (user *User) GetToken() string {

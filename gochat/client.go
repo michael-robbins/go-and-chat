@@ -13,7 +13,8 @@ import (
 )
 
 type ChatClient struct {
-	conn     net.Conn
+	encoder  *gob.Encoder
+	decoder  *gob.Decoder
 	logger   *log.Entry
 	username string
 	token    string
@@ -23,24 +24,40 @@ func NewChatClient(logger *log.Entry) (*ChatClient, error) {
 	return &ChatClient{logger: logger}, nil
 }
 
-func (client *ChatClient) Connection() (net.Conn, error) {
-	if client.conn != nil {
-		return client.conn, nil
-	}
-
-	return nil, errors.New("Not connected")
-}
-
-func (client *ChatClient) Connect(connection_string string) (net.Conn, error) {
+func (client *ChatClient) Connect(connection_string string) error {
 	// Attempt to connect to the server returning the connection status
 	conn, err := net.Dial("tcp", connection_string)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	client.conn = conn
+	client.encoder = gob.NewEncoder(conn)
+	client.decoder = gob.NewDecoder(conn)
 
-	return client.conn, nil
+	return nil
+}
+
+func (client *ChatClient) EventLoop(server_messages <-chan Message, client_messages <-chan Message, exit <-chan int) {
+EventLoop:
+	for {
+		select {
+		case message := <-server_messages:
+			// Handle the server initiated message
+			if err := client.HandleServerMessage(message); err != nil {
+				client.logger.Error(err)
+			}
+		case message := <-client_messages:
+			// Handle the client initiated message
+			if err := SendRemoteCommand(client.encoder, message); err != nil {
+				client.logger.Error(err)
+			}
+		case _ = <-exit:
+			break EventLoop
+		}
+
+		// Sleep for a second then check again for any server/client messages or exit decisions
+		time.Sleep(time.Second)
+	}
 }
 
 func (client *ChatClient) Register(username string, password string) error {
@@ -49,7 +66,7 @@ func (client *ChatClient) Register(username string, password string) error {
 	password_hash_hex := hex.EncodeToString(password_hash[:])
 
 	client.logger.Debug("Sending registration request to the server")
-	return SendRemoteCommand(client.conn,
+	return SendRemoteCommand(client.encoder,
 		BuildMessage(REGISTER, RegisterMessage{Username: username, PasswordHash: password_hash_hex}))
 }
 
@@ -63,11 +80,11 @@ func (client *ChatClient) Authenticate(username string, password string) error {
 
 	// Send off the authentication attempt, the response will be handled elsewhere
 	client.logger.Debug("Sending auth request to the server")
-	return SendRemoteCommand(client.conn,
+	return SendRemoteCommand(client.encoder,
 		BuildMessage(AUTHENTICATE, AuthenticateMessage{Username: username, PasswordHash: password_hash_hex}))
 }
 
-func (client *ChatClient) ListenToUser(message_channel chan<- Message, exit chan<- int) error {
+func (client *ChatClient) ListenToUser(message_channel chan<- Message) error {
 	client_commands := []COMMAND{LIST_ROOMS, JOIN_ROOM, CREATE_ROOM, CLOSE_ROOM}
 
 UserMenuLoop:
@@ -76,10 +93,6 @@ UserMenuLoop:
 
 		// The user has indicated to quit
 		if number == -1 {
-			// Fire an exit event to the event loop
-			exit <- 1
-
-			// Return to stop this go thread
 			return nil
 		}
 
@@ -244,21 +257,29 @@ func (client *ChatClient) BuildSendMessageMessage(content string, room string) (
 		}), nil
 }
 
-func (client *ChatClient) ListenToServer(notify chan<- Message) error {
-	decoder := gob.NewDecoder(client.conn)
+func (client *ChatClient) ListenToServer(notify chan<- Message, exit <-chan int) error {
 	var empty_message Message
 
+	ListenLoop:
 	for {
+		select {
+		case _ = <-exit:
+			break ListenLoop
+		default:
+			// This needs to be here for the above channel read to be non-blocking
+			fmt.Print("")
+		}
+
 		message := Message{}
-		decoder.Decode(&message)
+		client.decoder.Decode(&message)
 
 		if message == empty_message {
 			// If we did not decode anything just sleep for a second and try again
 			time.Sleep(time.Second * 1)
-			continue
+			continue ListenLoop
 		}
 
-		notify <- message
+		notify<- message
 	}
 
 	return nil
