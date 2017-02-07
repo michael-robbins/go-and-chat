@@ -52,14 +52,14 @@ func getClientCommandsOption(client_commands []COMMAND) int {
 }
 
 func getRoomName() string {
-	var roomName string
+	roomName := ""
 
 	for {
 		if roomName != "" {
 			break
 		}
 
-		roomName = getUserInput("Room to join: ")
+		roomName = getUserInput("Room Name: ")
 		if roomName == "quit" || roomName == "q" {
 			return ""
 		}
@@ -76,7 +76,7 @@ func getRoomCapacity() int {
 			break
 		}
 
-		text := getUserInput("Room to create: ")
+		text := getUserInput("Room Capacity: ")
 
 		if text == "quit" || text == "q" {
 			return -1
@@ -86,7 +86,8 @@ func getRoomCapacity() int {
 		number, err := strconv.Atoi(text)
 
 		if err != nil || number < 1 {
-			fmt.Println("Invalid choice (Only '1' -> 'MAX_INT32'.")
+			fmt.Println("Invalid choice (only numbers >0 please).")
+			continue
 		}
 
 		roomCapacity = number

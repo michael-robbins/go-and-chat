@@ -43,6 +43,7 @@ EventLoop:
 		select {
 		case message := <-server_messages:
 			// Handle the server initiated message
+			client.logger.Debug("Handling Server Message: " + message.Command)
 			if err := client.HandleServerMessage(message); err != nil {
 				client.logger.Error(err)
 			}
@@ -50,13 +51,15 @@ EventLoop:
 			// Handle the client initiated message
 			if err := SendRemoteCommand(client.encoder, message); err != nil {
 				client.logger.Error(err)
+			} else {
+				client.logger.Debug("Successfully sent " + message.Command + " message.")
 			}
 		case _ = <-exit:
 			break EventLoop
+		default:
+			// Sleep for half a second then check again for any server/client messages or exit decisions
+			time.Sleep(time.Millisecond * 500)
 		}
-
-		// Sleep for a second then check again for any server/client messages or exit decisions
-		time.Sleep(time.Second)
 	}
 }
 
@@ -113,7 +116,7 @@ UserMenuLoop:
 
 		switch command {
 		case JOIN_ROOM, LEAVE_ROOM, CREATE_ROOM, CLOSE_ROOM:
-			roomName := getRoomName()
+			roomName = getRoomName()
 			if roomName == "" {
 				// The user has indicated to return to the main menu
 				continue UserMenuLoop
@@ -312,7 +315,7 @@ func (client *ChatClient) DisplayTextMessage(message TextMessage) {
 
 func (client *ChatClient) DisplayRoomListingMessage(message ListRoomsMessage) {
 	fmt.Println("Room Listing:")
-	for i, room := range message.Rooms {
-		fmt.Println(string(i)+":", room)
+	for _, room := range message.Rooms {
+		fmt.Println(room)
 	}
 }
