@@ -108,8 +108,8 @@ func (manager *UserManager) CreateUser(username string, password string) error {
 func (manager *UserManager) AuthenticateUser(username string, password_sha256 string) (*ServerUser, error) {
 	user, err := manager.GetUser(username)
 	if err != nil {
-		manager.logger.Debug("Failed to get the user to authenticate against")
-		return &ServerUser{}, err
+		manager.logger.Error(err)
+		return &ServerUser{}, errors.New("That user does not exist!")
 	}
 
 	server_salt, err := hex.DecodeString(user.User.Salt)
@@ -123,7 +123,7 @@ func (manager *UserManager) AuthenticateUser(username string, password_sha256 st
 	if client_hash_string == user.User.Password_sha256 {
 		return user, nil
 	} else {
-		return &ServerUser{}, errors.New("Invalid password")
+		return &ServerUser{}, errors.New("Invalid password!")
 	}
 }
 

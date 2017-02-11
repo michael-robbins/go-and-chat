@@ -66,7 +66,11 @@ func main() {
 	gochat.RegisterStructs()
 
 	// Create the server and listen for incoming connections
-	chatServer, _ := gochat.NewChatServer(logger, config)
+	chatServer, err := gochat.NewChatServer(logger, config)
+	if err != nil {
+		logger.Error(err)
+		return
+	}
 
 	if err := chatServer.Listen(*server); err != nil {
 		logger.Error(err)

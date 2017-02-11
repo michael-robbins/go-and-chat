@@ -97,6 +97,7 @@ func (server *ChatServer) HandleIncomingConnection(connection net.Conn) {
 			return
 		} else if message.Command != "" {
 			// Only send a reply if the command is not empty
+			server.logger.Debug("Sending " + reply.Command + " response.")
 			encoder.Encode(reply)
 		}
 	}

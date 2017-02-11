@@ -315,7 +315,7 @@ func (client *ChatClient) DisplayTextMessage(message TextMessage) {
 
 func (client *ChatClient) DisplayRoomListingMessage(message ListRoomsMessage) {
 	fmt.Println("Room Listing:")
-	for _, room := range message.Rooms {
-		fmt.Println(room)
+	for i, room := range message.Rooms {
+		fmt.Print(i, ": ", room, "\n")
 	}
 }

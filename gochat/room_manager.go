@@ -7,10 +7,11 @@ import (
 )
 
 const (
-	CREATE_ROOM_SQL = "INSERT INTO rooms (name, capacity, closed) VALUES (?, ?, ?)"
-	DELETE_ROOM_SQL = "DELETE FROM rooms WHERE name=?"
-	GET_ROOM_SQL    = "SELECT * FROM rooms WHERE name=?"
-	ROOM_SCHEMA     = `
+	CREATE_ROOM_SQL   = "INSERT INTO rooms (name, capacity, closed) VALUES (?, ?, ?)"
+	GET_ALL_ROOMS_SQL = "SELECT * FROM rooms WHERE closed=?"
+	DELETE_ROOM_SQL   = "DELETE FROM rooms WHERE name=?"
+	GET_ROOM_SQL      = "SELECT * FROM rooms WHERE name=?"
+	ROOM_SCHEMA       = `
 	CREATE TABLE IF NOT EXISTS rooms (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		name TEXT UNIQUE,
@@ -29,13 +30,19 @@ func NewRoomManager(storage *StorageManager, logger *log.Entry) (*RoomManager, e
 	// Create the rooms table if it doesn't already exist
 	_, err := storage.db.Exec(ROOM_SCHEMA)
 	if err != nil {
-		return &RoomManager{}, err
+		logger.Error(err)
+		return &RoomManager{}, errors.New("Failed to generate the Room schema.")
 	}
 
 	manager := RoomManager{
 		storage: storage,
 		logger: logger,
 		roomCache: make(map[string]*ServerRoom),
+	}
+
+	if err := manager.LoadRooms(); err != nil {
+		logger.Error(err)
+		return &RoomManager{}, errors.New("Failed to load the rooms from the DB")
 	}
 
 	return &manager, nil
@@ -75,12 +82,36 @@ func (manager *RoomManager) GetRoom(name string) (*ServerRoom, error) {
 	return &room, nil
 }
 
+func (manager *RoomManager) LoadRooms() error {
+	sql := manager.storage.db.Rebind(GET_ALL_ROOMS_SQL)
+	rows, err := manager.storage.db.Queryx(sql, false)
+	if err != nil {
+		manager.logger.Error(err)
+		return errors.New("Failed to run GET_ALL_ROOMS_SQL")
+	}
+
+	for rows.Next() {
+		var dbRoom Room
+		err = rows.StructScan(&dbRoom)
+		if err != nil {
+			return errors.New("Failed to parse a GET_ALL_ROOMS_SQL result into a dbRoom")
+		}
+
+		room := ServerRoom{Room: &dbRoom}
+		manager.roomCache[dbRoom.Name] = &room
+	}
+
+	return nil
+}
+
 func (manager *RoomManager) GetRoomNames() []string {
 	rooms := make([]string, len(manager.roomCache))
 
 	// key is the name of the room here
+	var i int
 	for key := range manager.roomCache {
-		rooms = append(rooms, key)
+		rooms[i] = key
+		i++
 	}
 
 	if len(rooms) == 0 {
@@ -93,15 +124,14 @@ func (manager *RoomManager) GetRoomNames() []string {
 func (manager *RoomManager) CreateRoom(name string, capacity int) (*ServerRoom, error) {
 	sql := manager.storage.db.Rebind(CREATE_ROOM_SQL)
 	if err := manager.storage.ExecOneRow(manager.storage.db.Exec(sql, name, capacity, false)); err != nil {
-		manager.logger.Debug("Failed to run CREATE_ROOM_SQL")
-		return &ServerRoom{}, err
+		manager.logger.Error(err)
+		return &ServerRoom{}, errors.New("Failed to run CREATE_ROOM_SQL")
 	}
 
 	room, err := manager.GetRoom(name)
 	if err != nil {
-		manager.logger.Debug("Failed to get room after creation")
 		manager.logger.Error(err)
-		return &ServerRoom{}, err
+		return &ServerRoom{}, errors.New("Failed to get room after creation.")
 	}
 
 	// Add them into the cache as well
@@ -114,7 +144,8 @@ func (manager *RoomManager) CloseRoom(name string) (*ServerRoom, error) {
 	// Attempt to get the room first, failing if it doesn't exist
 	room, err := manager.GetRoom(name)
 	if err != nil {
-		return &ServerRoom{}, err
+		manager.logger.Error(err)
+		return &ServerRoom{}, errors.New("Failed to get the room from the DB")
 	}
 
 	// Remove the room from the cache
