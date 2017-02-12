@@ -95,7 +95,7 @@ func (server *ChatServer) HandleIncomingConnection(connection net.Conn) {
 		if err != nil {
 			server.logger.Error(err)
 			return
-		} else if message.Command != "" {
+		} else if reply.Command != "" {
 			// Only send a reply if the command is not empty
 			server.logger.Debug("Sending " + reply.Command + " response.")
 			encoder.Encode(reply)
@@ -174,7 +174,14 @@ func (server *ChatServer) HandleMessage(message Message, encoder *gob.Encoder) (
 		}
 
 	case JOIN_ROOM:
-		room.AddUser(user)
+		var textMessage TextMessage
+		if err := room.AddUser(user); err != nil {
+			textMessage = TextMessage{Username: "SERVER", Room: "SERVER", Text: "Failed to join " + room.Room.Name}
+		} else {
+			textMessage = TextMessage{Username: "SERVER", Room: "SERVER", Text: "Successfully joined " + room.Room.Name}
+		}
+
+		return BuildMessage(RECV_MSG, RecvTextMessage{Message: textMessage}), nil
 
 	case CREATE_ROOM:
 		contents := message.Contents.(CreateRoomMessage)

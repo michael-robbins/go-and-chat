@@ -26,8 +26,9 @@ func (room *ServerRoom) String() string {
 }
 
 
-func (room *ServerRoom) AddUser(user *ServerUser) {
+func (room *ServerRoom) AddUser(user *ServerUser) error {
 	room.users = append(room.users, user)
+	return nil
 }
 
 func removeUserFromList(user *ServerUser, array []*ServerUser) error {
