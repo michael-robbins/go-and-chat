@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/michael-robbins/go-and-chat/gochat"
 	log "github.com/Sirupsen/logrus"
+	"github.com/michael-robbins/go-and-chat/gochat"
 )
 
 func printDefaults(usageTitle string, error string) {

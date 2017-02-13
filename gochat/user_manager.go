@@ -32,7 +32,7 @@ const (
 
 type UserManager struct {
 	storage     *StorageManager
-	logger	    *log.Entry
+	logger      *log.Entry
 	user_cache  map[string]*ServerUser
 	token_cache map[string]*ServerUser
 }
@@ -45,9 +45,9 @@ func NewUserManager(storage *StorageManager, logger *log.Entry) (*UserManager, e
 	}
 
 	manager := UserManager{
-		storage: storage,
-		logger: logger,
-		user_cache: make(map[string]*ServerUser),
+		storage:     storage,
+		logger:      logger,
+		user_cache:  make(map[string]*ServerUser),
 		token_cache: make(map[string]*ServerUser),
 	}
 

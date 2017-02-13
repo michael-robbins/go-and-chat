@@ -150,18 +150,19 @@ func (server *ChatServer) HandleMessage(message Message, encoder *gob.Encoder) (
 		contents := message.Contents.(AuthenticateMessage)
 		user, err := server.user_manager.AuthenticateUser(contents.Username, contents.PasswordHash)
 
-		var message Message
+		var tokenMessage TokenMessage
 		if err != nil {
 			server.logger.Debug("Sending back failed authentication attempt")
 			server.logger.Error(err)
-			textMessage := TextMessage{Username: "SERVER", Room: "SERVER", Text: "Authentication Failed: " + err.Error()}
-			message = BuildMessage(RECV_MSG, RecvTextMessage{Message: textMessage})
+			msg := "Authentication Failed: " + err.Error()
+			tokenMessage = TokenMessage{Username: contents.Username, Token: "", Message: msg}
 		} else {
 			server.logger.Debug("Sending back successful authentication attempt")
-			message = BuildMessage(TOKEN, TokenMessage{Username: user.User.Username, Token: user.GetToken()})
+			msg := "Authentication Successful!"
+			tokenMessage = TokenMessage{Username: user.User.Username, Token: user.GetToken(), Message: msg}
 		}
 
-		return message, nil
+		return BuildMessage(TOKEN, tokenMessage), nil
 
 	case LIST_ROOMS:
 		return BuildMessage(LIST_ROOMS, ListRoomsMessage{Rooms: server.room_manager.GetRoomNames()}), nil
@@ -208,7 +209,7 @@ func (server *ChatServer) HandleMessage(message Message, encoder *gob.Encoder) (
 			server.logger.Error(err)
 			textMessage = TextMessage{Username: "SERVER", Room: "SERVER", Text: "Failed to remove you from: " + room.String()}
 		} else {
-			textMessage = TextMessage{Username: "SERVER", Room: room.String(), Text: "Successfully removed you from: " + room.String()}
+			textMessage = TextMessage{Username: "SERVER", Room: "SERVER", Text: "Successfully removed you from: " + room.String()}
 		}
 
 		return BuildMessage(RECV_MSG, RecvTextMessage{Message: textMessage}), nil

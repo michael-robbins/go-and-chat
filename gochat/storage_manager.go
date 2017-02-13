@@ -4,11 +4,11 @@ import (
 	"errors"
 	"fmt"
 
+	"database/sql/driver"
+	log "github.com/Sirupsen/logrus"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
-	log "github.com/Sirupsen/logrus"
-	"database/sql/driver"
 )
 
 type StorageManager struct {

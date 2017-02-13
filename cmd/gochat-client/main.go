@@ -7,8 +7,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/michael-robbins/go-and-chat/gochat"
 	log "github.com/Sirupsen/logrus"
+	"github.com/michael-robbins/go-and-chat/gochat"
+	"time"
 )
 
 func printDefaults(usageTitle string, error string) {
@@ -69,7 +70,8 @@ func main() {
 	// Spin off a thread to listen for server events
 	server_disconnect := make(chan int, 1)
 	server_messages := make(chan gochat.Message, 1)
-	go client.ListenToServer(server_messages, server_disconnect)
+	auth_result := make(chan bool)
+	go client.ListenToServer(server_messages, server_disconnect, auth_result)
 
 	// Create the channels the client will populate
 	client_messages := make(chan gochat.Message, 1)
@@ -81,6 +83,7 @@ func main() {
 	// Ask the user what they want to do
 	choices := []string{"Register", "Log In"}
 	reader := bufio.NewReader(os.Stdin)
+AuthenticationLoop:
 	for {
 		choice := gochat.GetStartupChoice(choices)
 		if choice == -1 {
@@ -110,7 +113,7 @@ func main() {
 
 			if password != password_again {
 				fmt.Println("Passwords do not match!")
-				continue
+				continue AuthenticationLoop
 			}
 
 			if err := client.Register(username, password); err != nil {
@@ -125,7 +128,21 @@ func main() {
 				return
 			}
 
-			break
+			timeout := make(chan bool, 1)
+			go func() {
+				time.Sleep(10 * time.Second)
+				timeout <- true
+			}()
+
+			select {
+			case result := <-auth_result:
+				if result {
+					break AuthenticationLoop
+				}
+			case <-timeout:
+				fmt.Println("Timed out waiting for authentication response!")
+				continue AuthenticationLoop
+			}
 		}
 	}
 
@@ -133,8 +150,8 @@ func main() {
 	client.ListenToUser(client_messages)
 
 	// Block and wait for the eventloop and server connection to finish up
-	eventloop_exit<- 1
-	server_disconnect<- 1
+	eventloop_exit <- 1
+	server_disconnect <- 1
 
 	logger.Info("Quitting!")
 }

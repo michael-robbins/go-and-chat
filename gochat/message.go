@@ -7,7 +7,7 @@ import (
 type COMMAND string
 
 const (
-	REGISTER	 = COMMAND("Register")
+	REGISTER     = COMMAND("Register")
 	AUTHENTICATE = COMMAND("Authenticate")
 	TOKEN        = COMMAND("Token")
 	LIST_ROOMS   = COMMAND("List Rooms")
@@ -25,7 +25,7 @@ type Message struct {
 }
 
 type RegisterMessage struct {
-	Username	 string
+	Username     string
 	PasswordHash string
 }
 
@@ -37,6 +37,7 @@ type AuthenticateMessage struct {
 type TokenMessage struct {
 	Username string
 	Token    string
+	Message  string
 }
 
 type TextMessage struct {

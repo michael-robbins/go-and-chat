@@ -21,8 +21,8 @@ const (
 )
 
 type RoomManager struct {
-	storage    *StorageManager
-	logger	   *log.Entry
+	storage   *StorageManager
+	logger    *log.Entry
 	roomCache map[string]*ServerRoom
 }
 
@@ -35,8 +35,8 @@ func NewRoomManager(storage *StorageManager, logger *log.Entry) (*RoomManager, e
 	}
 
 	manager := RoomManager{
-		storage: storage,
-		logger: logger,
+		storage:   storage,
+		logger:    logger,
 		roomCache: make(map[string]*ServerRoom),
 	}
 

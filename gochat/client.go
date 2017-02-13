@@ -171,7 +171,7 @@ UserMenuLoop:
 						fmt.Println(err)
 					} else {
 						// Send the leave room request
-						message_channel<- message
+						message_channel <- message
 					}
 
 					break
@@ -183,7 +183,7 @@ UserMenuLoop:
 					fmt.Println(err)
 					break
 				} else {
-					message_channel<- message
+					message_channel <- message
 				}
 
 				// Continue the loop asking for another text message to send
@@ -260,10 +260,10 @@ func (client *ChatClient) BuildSendMessageMessage(content string, room string) (
 		}), nil
 }
 
-func (client *ChatClient) ListenToServer(notify chan<- Message, exit <-chan int) error {
+func (client *ChatClient) ListenToServer(notify chan<- Message, exit <-chan int, auth chan<- bool) error {
 	var empty_message Message
 
-	ListenLoop:
+ListenLoop:
 	for {
 		select {
 		case _ = <-exit:
@@ -282,7 +282,16 @@ func (client *ChatClient) ListenToServer(notify chan<- Message, exit <-chan int)
 			continue ListenLoop
 		}
 
-		notify<- message
+		if message.Command == TOKEN {
+			tokenMsg := message.Contents.(TokenMessage)
+			if tokenMsg.Token != "" {
+				auth <- true
+			} else {
+				auth <- false
+			}
+		}
+
+		notify <- message
 	}
 
 	return nil
@@ -293,8 +302,14 @@ func (client *ChatClient) HandleServerMessage(message Message) error {
 	switch message.Command {
 	case TOKEN:
 		contents := message.Contents.(TokenMessage)
-		client.token = contents.Token
-		fmt.Println("Successfully Authenticated with the server!")
+
+		if contents.Token != "" {
+			client.token = contents.Token
+			fmt.Println(contents.Message)
+		} else {
+			fmt.Println(contents.Message)
+		}
+
 	case RECV_MSG:
 		contents := message.Contents.(RecvTextMessage)
 		client.DisplayTextMessage(contents.Message)
