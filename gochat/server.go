@@ -13,10 +13,10 @@ import (
 )
 
 type ChatServer struct {
-	userManager *UserManager
-	roomManager *RoomManager
+	userManager    *UserManager
+	roomManager    *RoomManager
 	messageManager *RoomMessageManager
-	logger       *log.Entry
+	logger         *log.Entry
 }
 
 type ServerConfig struct {
@@ -54,10 +54,10 @@ func NewChatServer(logger *log.Entry, config ServerConfig) (*ChatServer, error) 
 	}
 
 	chat_server := ChatServer{
-		userManager: userManager,
-		roomManager: roomManager,
+		userManager:    userManager,
+		roomManager:    roomManager,
 		messageManager: messageManager,
-		logger:       logger,
+		logger:         logger,
 	}
 
 	return &chat_server, nil
