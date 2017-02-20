@@ -13,8 +13,9 @@ import (
 )
 
 type ChatServer struct {
-	user_manager *UserManager
-	room_manager *RoomManager
+	userManager *UserManager
+	roomManager *RoomManager
+	messageManager *RoomMessageManager
 	logger       *log.Entry
 }
 
@@ -47,9 +48,15 @@ func NewChatServer(logger *log.Entry, config ServerConfig) (*ChatServer, error) 
 		return &ChatServer{}, err
 	}
 
+	messageManager, err := NewRoomMessageManager(storageManager, logger)
+	if err != nil {
+		return &ChatServer{}, err
+	}
+
 	chat_server := ChatServer{
-		user_manager: userManager,
-		room_manager: roomManager,
+		userManager: userManager,
+		roomManager: roomManager,
+		messageManager: messageManager,
 		logger:       logger,
 	}
 
@@ -135,7 +142,7 @@ func (server *ChatServer) HandleMessage(message Message, encoder *gob.Encoder) (
 		contents := message.Contents.(RegisterMessage)
 
 		var message TextMessage
-		if err := server.user_manager.CreateUser(contents.Username, contents.PasswordHash); err != nil {
+		if err := server.userManager.CreateUser(contents.Username, contents.PasswordHash); err != nil {
 			server.logger.Error("Sending back failed registration attempt")
 			server.logger.Error(err)
 			message = TextMessage{Username: "SERVER", Room: "SERVER", Text: "Registration Failed."}
@@ -148,7 +155,7 @@ func (server *ChatServer) HandleMessage(message Message, encoder *gob.Encoder) (
 
 	case AUTHENTICATE:
 		contents := message.Contents.(AuthenticateMessage)
-		user, err := server.user_manager.AuthenticateUser(contents.Username, contents.PasswordHash)
+		user, err := server.userManager.AuthenticateUser(contents.Username, contents.PasswordHash)
 
 		var tokenMessage TokenMessage
 		if err != nil {
@@ -165,13 +172,18 @@ func (server *ChatServer) HandleMessage(message Message, encoder *gob.Encoder) (
 		return BuildMessage(TOKEN, tokenMessage), nil
 
 	case LIST_ROOMS:
-		return BuildMessage(LIST_ROOMS, ListRoomsMessage{Rooms: server.room_manager.GetRoomNames()}), nil
+		return BuildMessage(LIST_ROOMS, ListRoomsMessage{Rooms: server.roomManager.GetRoomNames()}), nil
 
 	case SEND_MSG:
 		contents := message.Contents.(SendTextMessage)
 
-		for _, user := range room.users {
-			SendRemoteCommand(user.encoder, BuildMessage(RECV_MSG, RecvTextMessage{Message: contents.Message}))
+		// Persist the message
+		server.messageManager.PersistRoomMessage(user, room, contents.Message.Text)
+
+		// Send the message to each user in the room
+		roomMessage := BuildMessage(RECV_MSG, RecvTextMessage{Message: contents.Message})
+		for _, roomUser := range room.users {
+			SendRemoteCommand(roomUser.encoder, roomMessage)
 		}
 
 	case JOIN_ROOM:
@@ -180,6 +192,12 @@ func (server *ChatServer) HandleMessage(message Message, encoder *gob.Encoder) (
 			textMessage = TextMessage{Username: "SERVER", Room: "SERVER", Text: "Failed to join " + room.Room.Name}
 		} else {
 			textMessage = TextMessage{Username: "SERVER", Room: "SERVER", Text: "Successfully joined " + room.Room.Name}
+		}
+
+		// Send the message to each user in the room
+		joinedMessage := BuildMessage(RECV_MSG, RecvTextMessage{Message: TextMessage{Username: "SERVER", Room: "SERVER", Text: user.User.Username + " has joined!"}})
+		for _, roomUser := range room.users {
+			SendRemoteCommand(roomUser.encoder, joinedMessage)
 		}
 
 		return BuildMessage(RECV_MSG, RecvTextMessage{Message: textMessage}), nil
@@ -191,7 +209,7 @@ func (server *ChatServer) HandleMessage(message Message, encoder *gob.Encoder) (
 		if room.Room.Name != "" {
 			textMessage = TextMessage{Username: "SERVER", Room: "SERVER", Text: "Room already exists!"}
 		} else {
-			if _, err := server.room_manager.CreateRoom(contents.Room, contents.Capacity); err != nil {
+			if _, err := server.roomManager.CreateRoom(contents.Room, contents.Capacity); err != nil {
 				server.logger.Debug("Failed to create room '" + contents.Room + "'")
 				server.logger.Error(err)
 				textMessage = TextMessage{Username: "SERVER", Room: "SERVER", Text: "Failed to create room: " + contents.Room}
@@ -216,7 +234,7 @@ func (server *ChatServer) HandleMessage(message Message, encoder *gob.Encoder) (
 
 	case CLOSE_ROOM:
 		contents := message.Contents.(CloseRoomMessage)
-		room, err := server.room_manager.CloseRoom(contents.Room)
+		room, err := server.roomManager.CloseRoom(contents.Room)
 		if err != nil {
 			textMessage := TextMessage{Username: "SERVER", Room: "SERVER", Text: "Failed to close room: " + contents.Room}
 			return BuildMessage(RECV_MSG, RecvTextMessage{Message: textMessage}), nil
@@ -254,7 +272,7 @@ func (server *ChatServer) messagePassesTokenTest(message Message) (bool, error) 
 		return true, nil
 	}
 
-	if valid, _ := server.user_manager.TokenIsValid(token); valid {
+	if valid, _ := server.userManager.TokenIsValid(token); valid {
 		return true, nil
 	}
 
@@ -282,7 +300,7 @@ func (server *ChatServer) getRoomIfRequired(message Message) (*ServerRoom, error
 		return &ServerRoom{}, nil
 	}
 
-	room, err := server.room_manager.GetRoom(name)
+	room, err := server.roomManager.GetRoom(name)
 	if err != nil {
 		if optional && err.Error() == "Room doesn't exist" {
 			// If the room doesn't exist and it's optional, return an empty room
@@ -309,7 +327,7 @@ func (server *ChatServer) getUserIfRequired(message Message, encoder *gob.Encode
 		return &ServerUser{}, nil
 	}
 
-	user, err := server.user_manager.GetUser(name)
+	user, err := server.userManager.GetUser(name)
 	if err != nil {
 		return &ServerUser{}, err
 	}

@@ -94,6 +94,7 @@ func (manager *RoomManager) LoadRooms() error {
 		var dbRoom Room
 		err = rows.StructScan(&dbRoom)
 		if err != nil {
+			manager.logger.Error(err)
 			return errors.New("Failed to parse a GET_ALL_ROOMS_SQL result into a dbRoom")
 		}
 
