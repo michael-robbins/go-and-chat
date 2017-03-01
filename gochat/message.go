@@ -17,6 +17,7 @@ const (
 	CLOSE_ROOM   = COMMAND("Close Room")
 	SEND_MSG     = COMMAND("Send Message")
 	RECV_MSG     = COMMAND("Receive Message")
+	POP_MSGS     = COMMAND("Populate Messages")
 )
 
 type Message struct {
@@ -53,6 +54,13 @@ type SendTextMessage struct {
 
 type RecvTextMessage struct {
 	Message TextMessage
+}
+
+type PopulateMessages struct {
+	Room      string
+	Messages  []TextMessage
+	TimeSince int
+	Token     string
 }
 
 type ListRoomsMessage struct {
@@ -96,6 +104,7 @@ func RegisterStructs() {
 	gob.Register(LeaveRoomMessage{})
 	gob.Register(CreateRoomMessage{})
 	gob.Register(CloseRoomMessage{})
+	gob.Register(PopulateMessages{})
 }
 
 func SendRemoteCommand(encoder *gob.Encoder, message Message) error {

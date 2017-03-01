@@ -6,8 +6,7 @@ import (
 )
 
 type RoomMessage struct {
-	Username  int    `db:"username"`
-	RoomName  int    `db:"room_name"`
+	Username  string `db:"username"`
 	Message   string `db:"message"`
 	Timestamp int64  `db:"epoch_timestamp"`
 }

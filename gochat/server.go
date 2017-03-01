@@ -48,7 +48,7 @@ func NewChatServer(logger *log.Entry, config ServerConfig) (*ChatServer, error) 
 		return &ChatServer{}, err
 	}
 
-	messageManager, err := NewRoomMessageManager(storageManager, logger)
+	messageManager, err := NewRoomMessageManager(storageManager, roomManager, userManager, logger)
 	if err != nil {
 		return &ChatServer{}, err
 	}
@@ -248,6 +248,19 @@ func (server *ChatServer) HandleMessage(message Message, encoder *gob.Encoder) (
 
 		textMessage := TextMessage{Username: "SERVER", Room: "SERVER", Text: "Successfully closed room: " + room.Room.Name}
 		return BuildMessage(RECV_MSG, RecvTextMessage{Message: textMessage}), nil
+	case POP_MSGS:
+		contents := message.Contents.(PopulateMessages)
+
+		var timeSince int64
+		timeSince = int64(contents.TimeSince)
+
+		messages, err := server.messageManager.GetRoomMessagesSince(room, time.Unix(timeSince, 0))
+		if err != nil {
+			server.logger.Error(err)
+			return Message{}, errors.New("Unable to obtain the rooms messages")
+		}
+
+		return BuildMessage(POP_MSGS, PopulateMessages{Messages: messages}), nil
 	}
 
 	return Message{}, nil
@@ -268,6 +281,8 @@ func (server *ChatServer) messagePassesTokenTest(message Message) (bool, error) 
 		token = message.Contents.(CreateRoomMessage).Token
 	case CLOSE_ROOM:
 		token = message.Contents.(CloseRoomMessage).Token
+	case POP_MSGS:
+		token = message.Contents.(PopulateMessages).Token
 	default:
 		return true, nil
 	}
@@ -296,6 +311,8 @@ func (server *ChatServer) getRoomIfRequired(message Message) (*ServerRoom, error
 		optional = true
 	case CLOSE_ROOM:
 		name = message.Contents.(CloseRoomMessage).Room
+	case POP_MSGS:
+		name = message.Contents.(PopulateMessages).Room
 	default:
 		return &ServerRoom{}, nil
 	}
