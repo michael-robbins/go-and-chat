@@ -254,7 +254,12 @@ func (server *ChatServer) HandleMessage(message Message, encoder *gob.Encoder) (
 		var timeSince int64
 		timeSince = int64(contents.TimeSince)
 
-		messages, err := server.messageManager.GetRoomMessagesSince(room, time.Unix(timeSince, 0))
+		if contents.Limit == 0 {
+			// Default it to something useful
+			contents.Limit = 50
+		}
+
+		messages, err := server.messageManager.GetRoomMessagesSince(room, time.Unix(timeSince, 0), contents.Limit)
 		if err != nil {
 			server.logger.Error(err)
 			return Message{}, errors.New("Unable to obtain the rooms messages")

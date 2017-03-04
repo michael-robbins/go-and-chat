@@ -21,6 +21,7 @@ const (
 	WHERE
 		m.room_id=?
 		AND m.epoch_timestamp>=?
+	LIMIT ?
 	`
 	MESSAGE_SCHEMA = `
 	CREATE TABLE IF NOT EXISTS messages (
@@ -68,10 +69,10 @@ func (manager *RoomMessageManager) PersistRoomMessage(user *ServerUser, room *Se
 	return nil
 }
 
-func (manager *RoomMessageManager) GetRoomMessagesSince(room *ServerRoom, timeSince time.Time) ([]TextMessage, error) {
+func (manager *RoomMessageManager) GetRoomMessagesSince(room *ServerRoom, timeSince time.Time, limit int) ([]TextMessage, error) {
 	var messages []TextMessage
 	sql := manager.storageManager.db.Rebind(GET_LATEST_ROOM_MESSAGES)
-	rows, err := manager.storageManager.db.Queryx(sql, room.Room.Id, timeSince.Unix())
+	rows, err := manager.storageManager.db.Queryx(sql, room.Room.Id, timeSince.Unix(), limit)
 	if err != nil {
 		manager.logger.Error(err)
 		return messages, errors.New("Failed to run GET_LATEST_ROOM_MESSAGES")
@@ -95,6 +96,7 @@ func (manager *RoomMessageManager) GetRoomMessagesSince(room *ServerRoom, timeSi
 			Username: user.User.Username,
 			Room: room.String(),
 			Text: dbRoomMessage.Message,
+			Time: time.Unix(dbRoomMessage.Timestamp, 0),
 		}
 		messages = append(messages, roomMessage)
 	}

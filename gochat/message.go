@@ -2,6 +2,7 @@ package gochat
 
 import (
 	"encoding/gob"
+	"time"
 )
 
 type COMMAND string
@@ -45,6 +46,7 @@ type TextMessage struct {
 	Username string
 	Room     string
 	Text     string
+	Time	 time.Time
 }
 
 type SendTextMessage struct {
@@ -60,6 +62,7 @@ type PopulateMessages struct {
 	Room      string
 	Messages  []TextMessage
 	TimeSince int
+	Limit     int
 	Token     string
 }
 
