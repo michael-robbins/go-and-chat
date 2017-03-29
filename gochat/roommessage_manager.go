@@ -35,9 +35,9 @@ const (
 
 type RoomMessageManager struct {
 	storageManager *StorageManager
-	roomManager *RoomManager
-	userManager *UserManager
-	logger  *log.Entry
+	roomManager    *RoomManager
+	userManager    *UserManager
+	logger         *log.Entry
 }
 
 func NewRoomMessageManager(storageManager *StorageManager, roomManager *RoomManager, userManager *UserManager, logger *log.Entry) (*RoomMessageManager, error) {
@@ -50,9 +50,9 @@ func NewRoomMessageManager(storageManager *StorageManager, roomManager *RoomMana
 
 	manager := RoomMessageManager{
 		storageManager: storageManager,
-		roomManager: roomManager,
-		userManager: userManager,
-		logger:  logger,
+		roomManager:    roomManager,
+		userManager:    userManager,
+		logger:         logger,
 	}
 
 	return &manager, nil
@@ -94,9 +94,9 @@ func (manager *RoomMessageManager) GetRoomMessagesSince(room *ServerRoom, timeSi
 
 		roomMessage := TextMessage{
 			Username: user.User.Username,
-			Room: room.String(),
-			Text: dbRoomMessage.Message,
-			Time: time.Unix(dbRoomMessage.Timestamp, 0),
+			Room:     room.String(),
+			Text:     dbRoomMessage.Message,
+			Time:     time.Unix(dbRoomMessage.Timestamp, 0),
 		}
 		messages = append(messages, roomMessage)
 	}

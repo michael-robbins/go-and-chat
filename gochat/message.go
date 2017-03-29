@@ -46,7 +46,7 @@ type TextMessage struct {
 	Username string
 	Room     string
 	Text     string
-	Time	 time.Time
+	Time     time.Time
 }
 
 type SendTextMessage struct {
