@@ -160,6 +160,10 @@ UserMenuLoop:
 
 		// The user now thinks they're in a room, so we enter 'room' mode and poll them for messages to send
 		if command == JOIN_ROOM {
+			// Send a 'populate' message requesting backfill of messages for this room
+			backfill_message, err := client.BuildPopulateMessage(roomName, time.Now())
+			message_channel <- backfill_message
+
 			// Keep looping asking for messages to send until they quit
 			for {
 				textMessage := getTextMessage()
@@ -257,6 +261,19 @@ func (client *ChatClient) BuildSendMessageMessage(content string, room string) (
 		SendTextMessage{
 			Token:   client.token,
 			Message: TextMessage{Username: client.username, Text: content, Room: room},
+		}), nil
+}
+
+func (client *ChatClient) BuildPopulateMessage(roomName string, timeSince time.Time) (Message, error) {
+	if client.token == "" {
+		return Message{}, errors.New("Unable to send populate request as we have not authenticated yet!")
+	}
+
+	return BuildMessage(POP_MSGS,
+		PopulateMessages{
+			Room:      roomName,
+			TimeSince: int(timeSince.Unix()),
+			Token:     client.token,
 		}), nil
 }
 

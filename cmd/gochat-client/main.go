@@ -83,6 +83,7 @@ func main() {
 	// Ask the user what they want to do
 	choices := []string{"Register", "Log In"}
 	reader := bufio.NewReader(os.Stdin)
+
 AuthenticationLoop:
 	for {
 		choice := gochat.GetStartupChoice(choices)
