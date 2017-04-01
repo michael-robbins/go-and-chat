@@ -188,16 +188,24 @@ func (server *ChatServer) HandleMessage(message Message, encoder *gob.Encoder) (
 
 	case JOIN_ROOM:
 		var textMessage TextMessage
-		if err := room.AddUser(user); err != nil {
-			textMessage = TextMessage{Username: "SERVER", Room: "SERVER", Text: "Failed to join " + room.Room.Name}
-		} else {
-			textMessage = TextMessage{Username: "SERVER", Room: "SERVER", Text: "Successfully joined " + room.Room.Name}
-		}
 
-		// Send the message to each user in the room
-		joinedMessage := BuildMessage(RECV_MSG, RecvTextMessage{Message: TextMessage{Username: "SERVER", Room: "SERVER", Text: user.User.Username + " has joined!"}})
-		for _, roomUser := range room.users {
-			SendRemoteCommand(roomUser.encoder, joinedMessage)
+		if room.Room.Name == "" {
+			server.logger.Debug("Sending back room doesn't exist message")
+			textMessage = TextMessage{Username: "SERVER", Room: "SERVER", Text: "Room doesn't exist, sorry!"}
+		} else {
+			if err := room.AddUser(user); err != nil {
+				server.logger.Debug("Sending back room join failure")
+				textMessage = TextMessage{Username: "SERVER", Room: "SERVER", Text: "Failed to join " + room.Room.Name}
+			} else {
+				server.logger.Debug("Sending back room join success")
+				textMessage = TextMessage{Username: "SERVER", Room: "SERVER", Text: "Successfully joined " + room.Room.Name}
+			}
+
+			// Send the message to each user in the room
+			joinedMessage := BuildMessage(RECV_MSG, RecvTextMessage{Message: TextMessage{Username: "SERVER", Room: "SERVER", Text: user.User.Username + " has joined!"}})
+			for _, roomUser := range room.users {
+				SendRemoteCommand(roomUser.encoder, joinedMessage)
+			}
 		}
 
 		return BuildMessage(RECV_MSG, RecvTextMessage{Message: textMessage}), nil
@@ -309,6 +317,7 @@ func (server *ChatServer) getRoomIfRequired(message Message) (*ServerRoom, error
 		name = message.Contents.(SendTextMessage).Message.Room
 	case JOIN_ROOM:
 		name = message.Contents.(JoinRoomMessage).Room
+		optional = true
 	case LEAVE_ROOM:
 		name = message.Contents.(LeaveRoomMessage).Room
 	case CREATE_ROOM:
