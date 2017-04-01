@@ -333,6 +333,9 @@ func (client *ChatClient) HandleServerMessage(message Message) error {
 	case LIST_ROOMS:
 		contents := message.Contents.(ListRoomsMessage)
 		client.DisplayRoomListingMessage(contents)
+	case POP_MSGS:
+		contents := message.Contents.(PopulateMessages)
+		client.DisplayPopulateMessages(contents)
 	default:
 		// Unknown Message command
 		return errors.New("Unable to determine incoming Message type from server.")
@@ -349,5 +352,11 @@ func (client *ChatClient) DisplayRoomListingMessage(message ListRoomsMessage) {
 	fmt.Println("Room Listing:")
 	for _, room := range message.Rooms {
 		fmt.Println("* " + room)
+	}
+}
+
+func (client *ChatClient) DisplayPopulateMessages(message PopulateMessages) {
+	for _, message := range message.Messages {
+		client.DisplayTextMessage(message)
 	}
 }
