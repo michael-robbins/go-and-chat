@@ -30,7 +30,7 @@ func (room *ServerRoom) AddUser(user *ServerUser) error {
 	return nil
 }
 
-func removeUserFromList(user *ServerUser, array []*ServerUser) error {
+func removeUserFromList(user *ServerUser, array []*ServerUser) ([]*ServerUser, error) {
 	index := -1
 	for i, room_user := range array {
 		if room_user == user {
@@ -39,21 +39,19 @@ func removeUserFromList(user *ServerUser, array []*ServerUser) error {
 	}
 
 	if index == -1 {
-		return errors.New("ServerUser does not exist in this list")
+		return nil, errors.New("ServerUser does not exist in this list")
 	}
 
-	array = append(array[:index], array[index+1:]...)
-
-	return nil
+	return append(array[:index], array[index+1:]...), nil
 }
 
 func (room *ServerRoom) RemoveUser(user *ServerUser) error {
-	if err := removeUserFromList(user, room.users); err != nil {
+	array, err := removeUserFromList(user, room.users)
+	if err != nil {
 		return err
 	}
 
-	// Capacity is only for normal users, super users do not count towards the Capacity of a Room
-	room.Room.Capacity = room.Room.Capacity - 1
+	room.users = array
 
 	return nil
 }
