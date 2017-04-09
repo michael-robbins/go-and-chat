@@ -126,14 +126,20 @@ func (server *ChatServer) HandleMessage(message Message, encoder *gob.Encoder) (
 	// This saves us having the same Room extraction code for each Message type
 	room, err := server.getRoomIfRequired(message)
 	if err != nil {
-		return Message{}, err
+		return BuildMessage(
+			RECV_MSG,
+			RecvTextMessage{Message: TextMessage{Username: "SERVER", Room: "SERVER", Text: err.Error()}},
+		), nil
 	}
 
 	// Get the user if this Message has one
 	// This saves us having the same user extraction code for each Message type
 	user, err := server.getUserIfRequired(message, encoder)
 	if err != nil {
-		return Message{}, err
+		return BuildMessage(
+			RECV_MSG,
+			RecvTextMessage{Message: TextMessage{Username: "SERVER", Room: "SERVER", Text: err.Error()}},
+		), nil
 	}
 
 	// Interpret Message
