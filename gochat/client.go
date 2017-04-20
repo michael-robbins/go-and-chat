@@ -13,15 +13,20 @@ import (
 )
 
 type ChatClient struct {
-	encoder  *gob.Encoder
-	decoder  *gob.Decoder
-	logger   *log.Entry
-	username string
-	token    string
+	encoder         *gob.Encoder
+	decoder         *gob.Decoder
+	logger          *log.Entry
+	username        string
+	token           string
+	joinRoomResult  chan JoinRoomMessage
+	leaveRoomResult chan LeaveRoomMessage
 }
 
 func NewChatClient(logger *log.Entry) (*ChatClient, error) {
-	return &ChatClient{logger: logger}, nil
+	return &ChatClient{logger: logger,
+		joinRoomResult:  make(chan JoinRoomMessage),
+		leaveRoomResult: make(chan LeaveRoomMessage),
+	}, nil
 }
 
 func (client *ChatClient) Connect(connection_string string) error {
@@ -144,7 +149,6 @@ UserMenuLoop:
 			message, err = client.BuildListRoomsMessage()
 		case JOIN_ROOM:
 			message, err = client.BuildJoinRoomMessage(roomName)
-
 		case CREATE_ROOM:
 			message, err = client.BuildCreateRoomMessage(roomName, roomCapacity)
 		case CLOSE_ROOM:
@@ -160,6 +164,14 @@ UserMenuLoop:
 
 		// The user now thinks they're in a room, so we enter 'room' mode and poll them for messages to send
 		if command == JOIN_ROOM {
+			// Wait until we get a response that the join room succeeded
+			joinMsg := <-client.joinRoomResult
+
+			if joinMsg.Status != SUCCESS {
+				client.DisplayTextMessage(TextMessage{Username: "SERVER", Room: joinMsg.Room, Text: joinMsg.Message})
+				continue
+			}
+
 			// Send a 'populate' message requesting backfill of messages for this room
 			backfill_message, err := client.BuildPopulateMessage(roomName, time.Now())
 			message_channel <- backfill_message
@@ -177,6 +189,9 @@ UserMenuLoop:
 						// Send the leave room request
 						message_channel <- message
 					}
+
+					// Wait for the response, but just ignore it and bail anyway
+					<-client.leaveRoomResult
 
 					break
 				}
@@ -336,6 +351,12 @@ func (client *ChatClient) HandleServerMessage(message Message) error {
 	case POP_MSGS:
 		contents := message.Contents.(PopulateMessages)
 		client.DisplayPopulateMessages(contents)
+	case JOIN_ROOM:
+		contents := message.Contents.(JoinRoomMessage)
+		client.joinRoomResult <- contents
+	case LEAVE_ROOM:
+		contents := message.Contents.(LeaveRoomMessage)
+		client.leaveRoomResult <- contents
 	default:
 		// Unknown Message command
 		return errors.New("Unable to determine incoming Message type from server.")

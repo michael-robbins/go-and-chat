@@ -21,6 +21,13 @@ const (
 	POP_MSGS     = COMMAND("Populate Messages")
 )
 
+type STATUS string
+
+const (
+	SUCCESS = STATUS("Request was successfull")
+	FAILURE = STATUS("Request failed")
+)
+
 type Message struct {
 	Command  COMMAND
 	Contents interface{}
@@ -75,12 +82,16 @@ type JoinRoomMessage struct {
 	Room        string
 	IsSuperUser bool
 	Token       string
+	Status      STATUS
+	Message     string
 }
 
 type LeaveRoomMessage struct {
 	Username string
 	Room     string
 	Token    string
+	Status   STATUS
+	Message  string
 }
 
 type CreateRoomMessage struct {
