@@ -198,17 +198,17 @@ func (server *ChatServer) HandleMessage(message Message, encoder *gob.Encoder) (
 		if room.Room.Name == "" {
 			joinMessage.Room = "N/A"
 			joinMessage.Status = FAILURE
-			joinMessage.Message = "Room doesn't exist"
+			joinMessage.Message = TextMessage{Text: "Room doesn't exist"}
 		} else {
 			joinMessage.Room = room.String()
 
 			if err := room.AddUser(user); err != nil {
 				server.logger.Error(err)
 				joinMessage.Status = FAILURE
-				joinMessage.Message = err.Error()
+				joinMessage.Message = TextMessage{Text: err.Error()}
 			} else {
 				joinMessage.Status = SUCCESS
-				joinMessage.Message = "Successfully joined " + room.String()
+				joinMessage.Message = TextMessage{Text: "Successfully joined " + room.String()}
 
 				// Send the message to each user in the room
 				joinedMessage := BuildMessage(RECV_MSG, RecvTextMessage{Message: TextMessage{Username: "SERVER", Room: "SERVER", Text: user.User.Username + " has joined!"}})
@@ -226,17 +226,17 @@ func (server *ChatServer) HandleMessage(message Message, encoder *gob.Encoder) (
 		if room.Room.Name == "" {
 			leaveMessage.Room = "N/A"
 			leaveMessage.Status = FAILURE
-			leaveMessage.Message = "Room doesn't exist"
+			leaveMessage.Message = TextMessage{Text: "Room doesn't exist"}
 		} else {
 			leaveMessage.Room = room.String()
 
 			if err := room.RemoveUser(user); err != nil {
 				server.logger.Error(err)
 				leaveMessage.Status = FAILURE
-				leaveMessage.Message = err.Error()
+				leaveMessage.Message = TextMessage{Text: err.Error()}
 			} else {
 				leaveMessage.Status = SUCCESS
-				leaveMessage.Message = "Successfully left " + room.String()
+				leaveMessage.Message = TextMessage{Text: "Successfully left " + room.String()}
 			}
 		}
 

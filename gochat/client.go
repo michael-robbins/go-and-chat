@@ -168,7 +168,11 @@ UserMenuLoop:
 			joinMsg := <-client.joinRoomResult
 
 			if joinMsg.Status != SUCCESS {
-				client.DisplayTextMessage(TextMessage{Username: "SERVER", Room: joinMsg.Room, Text: joinMsg.Message})
+				textMsg := joinMsg.Message
+				textMsg.Username = "SERVER"
+				textMsg.Room = joinMsg.Room
+
+				client.DisplayTextMessage(textMsg)
 				continue
 			}
 

@@ -83,7 +83,7 @@ type JoinRoomMessage struct {
 	IsSuperUser bool
 	Token       string
 	Status      STATUS
-	Message     string
+	Message     TextMessage
 }
 
 type LeaveRoomMessage struct {
@@ -91,7 +91,7 @@ type LeaveRoomMessage struct {
 	Room     string
 	Token    string
 	Status   STATUS
-	Message  string
+	Message  TextMessage
 }
 
 type CreateRoomMessage struct {
