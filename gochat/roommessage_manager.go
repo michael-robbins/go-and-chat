@@ -80,7 +80,7 @@ func (manager *RoomMessageManager) GetRoomMessagesSince(room *ServerRoom, timeSi
 
 	for rows.Next() {
 		var dbRoomMessage RoomMessage
-		err = rows.StructScan(dbRoomMessage)
+		err = rows.StructScan(&dbRoomMessage)
 		if err != nil {
 			manager.logger.Error(err)
 			return messages, errors.New("Failed to parse GET_LATEST_ROOM_MESSAGES result into struct")

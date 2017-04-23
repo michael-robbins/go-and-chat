@@ -177,7 +177,7 @@ UserMenuLoop:
 			}
 
 			// Send a 'populate' message requesting backfill of messages for this room
-			backfill_message, err := client.BuildPopulateMessage(roomName, time.Now())
+			backfill_message, err := client.BuildPopulateMessage(roomName, time.Now().Add(-time.Hour*48))
 			message_channel <- backfill_message
 
 			// Keep looping asking for messages to send until they quit
